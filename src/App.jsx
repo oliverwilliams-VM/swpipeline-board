@@ -329,6 +329,55 @@ export default function App() {
     };
   }, [signUpItems]);
 
+  // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
+  // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
+  // further pipeline activity so it's excluded here, same as the Scheduled
+  // vs Actual table. Sourced from the same Sign Up board Install Phase
+  // field already fetched for reconciliation \u2014 real labels are numbered
+  // e.g. "4. HW Placement Approval", "9. Implementing". ----
+  const activePipelineBreakdown = useMemo(() => {
+    const normalizeCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (!t) return null;
+      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
+      if (t.includes('ireland')) return 'IE';
+      if (t.includes('netherlands') || t === 'nl') return 'NL';
+      if (t.includes('germany') || t === 'de') return 'DE';
+      if (t.includes('finland') || t === 'fi') return 'FI';
+      return null;
+    };
+    const classifyStage = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (t.includes('hw placement approval') || t.includes('hardware placement approval')) return 'hwPlacement';
+      if (t.includes('imp readiness')) return 'impReadiness';
+      if (t.includes('contract signed')) return 'contractSigned';
+      if (t.includes('implementing')) return 'implementing';
+      if (t.includes('installing')) return 'installing';
+      return null;
+    };
+    const clusterOf = (country) => {
+      if (country === 'UK' || country === 'IE') return 'UKI';
+      if (country === 'DE' || country === 'NL') return 'DE_NL';
+      return null;
+    };
+
+    const blank = () => ({ hwPlacement: 0, impReadiness: 0, contractSigned: 0, implementing: 0, installing: 0 });
+    const counts = { UKI: blank(), DE_NL: blank() };
+
+    (signUpItems || []).forEach((item) => {
+      const cluster = clusterOf(normalizeCountry(item.country));
+      const stage = classifyStage(item.installPhase);
+      if (!cluster || !stage) return;
+      counts[cluster][stage] += 1;
+    });
+
+    const totalOf = (row) => Object.values(row).reduce((sum, n) => sum + n, 0);
+    return {
+      UKI: { ...counts.UKI, total: totalOf(counts.UKI) },
+      DE_NL: { ...counts.DE_NL, total: totalOf(counts.DE_NL) }
+    };
+  }, [signUpItems]);
+
   // ---- Current / next / month-after install volume, based on each site's
   // real Install Date rather than group names (more reliable across boards) ----
   const scheduledByMonth = useMemo(() => {
@@ -659,6 +708,53 @@ export default function App() {
               </div>
               <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
                 Interrupt / Disrupt / Small Format counts come from the Sign Up → Ready to Go board's Layout Type field — a different source to the Total Sites Live row above, which uses the 5 country boards.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
+              <div className="px-5 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold">Active Pipeline Breakdown</h3>
+              </div>
+              <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+                {[
+                  { key: 'UKI', label: 'UKI Pipeline' },
+                  { key: 'DE_NL', label: 'DE/NL Pipeline' }
+                ].map(({ key, label }) => {
+                  const row = activePipelineBreakdown[key];
+                  const stageRows = [
+                    ['Hardware Placement Approval', row.hwPlacement],
+                    ['Imp Readiness', row.impReadiness],
+                    ['Contract Signed', row.contractSigned],
+                    ['Implementing without Install Date', row.implementing],
+                    ['Installing', row.installing]
+                  ];
+                  return (
+                    <div key={key} className="border border-border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-semibold" colSpan={2}>{label}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {stageRows.map(([stageLabel, count]) => (
+                            <tr key={stageLabel}>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">{stageLabel}</td>
+                              <td className="px-4 py-2.5 text-xs text-right tabular-nums">{count}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-[hsl(var(--surface-2))]">
+                            <td className="px-4 py-2.5 text-xs font-semibold">Total Active Pipeline</td>
+                            <td className="px-4 py-2.5 text-xs text-right font-semibold tabular-nums">{row.total}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
+                Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity).
               </p>
             </div>
 
