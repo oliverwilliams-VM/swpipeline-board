@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, ScanSearch, ArrowLeft } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -178,115 +178,6 @@ function GoalCard({ title, current, target, pct, daysRemaining, avgPace, avgPace
   );
 }
 
-function ReconciliationView({ loading, error, reconciliation }) {
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
-        </div>
-        <p className="text-sm text-muted-foreground">Checking Sign Up board against Install {'\u2192'} BAU boards{'\u2026'}</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="border border-border rounded-md p-5 bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--destructive))]">
-        Couldn't load the Sign Up board: {error}
-      </div>
-    );
-  }
-
-  if (!reconciliation) return null;
-
-  const { signUpLiveNotReflected, countryLiveNotReflected } = reconciliation;
-  const totalIssues = signUpLiveNotReflected.length + countryLiveNotReflected.length;
-
-  return (
-    <div className="space-y-6">
-      <div className="border border-border rounded-md p-5 bg-[hsl(var(--surface-1))]">
-        <h2 className="text-base font-semibold mb-2">Reconciliation Summary</h2>
-        <p className="text-sm text-muted-foreground">
-          {totalIssues === 0
-            ? 'Everything reconciles \u2014 no mismatches found between the Sign Up board and the 5 country boards.'
-            : `Found ${totalIssues} mismatch${totalIssues === 1 ? '' : 'es'} between the Sign Up board's "Live" status and the country boards' completion status.`}
-        </p>
-      </div>
-
-      <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-        <div className="px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold">Sign Up says "Live", but Install {'\u2192'} BAU doesn't agree ({signUpLiveNotReflected.length})</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
-              <tr>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Sign Up Item</th>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country</th>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Issue</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {signUpLiveNotReflected.length === 0 ? (
-                <tr><td colSpan={3} className="px-5 py-4 text-xs text-muted-foreground">None found.</td></tr>
-              ) : signUpLiveNotReflected.map(({ signUpItem, linked, rawNames }) => (
-                <tr key={signUpItem.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                  <td className="px-5 py-3 text-xs font-medium">{signUpItem.name}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">{signUpItem.country || '\u2014'}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">
-                    {rawNames.length === 0
-                      ? 'Link column is empty on this Sign Up item'
-                      : linked.length === 0
-                      ? `Linked name(s) "${rawNames.join(', ')}" not found among country-board items`
-                      : `Linked item(s) not classified live: ${linked.map((l) => `${l.name} (${l.group || l.installPhase || 'unknown'})`).join(', ')}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-        <div className="px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold">Install {'\u2192'} BAU says live, but Sign Up doesn't agree ({countryLiveNotReflected.length})</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
-              <tr>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country Board Item</th>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country</th>
-                <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Issue</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {countryLiveNotReflected.length === 0 ? (
-                <tr><td colSpan={3} className="px-5 py-4 text-xs text-muted-foreground">None found.</td></tr>
-              ) : countryLiveNotReflected.map(({ countryItem, linked, rawNames }) => (
-                <tr key={countryItem.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                  <td className="px-5 py-3 text-xs font-medium">{countryItem.name}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">{countryItem.country}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">
-                    {rawNames.length === 0
-                      ? 'Link column is empty on this country-board item'
-                      : linked.length === 0
-                      ? `Linked name(s) "${rawNames.join(', ')}" not found among Sign Up items`
-                      : `Linked Sign Up item(s) not marked Live: ${linked.map((l) => `${l.name} (${l.installPhase || 'unknown'})`).join(', ')}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -296,7 +187,6 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chartView, setChartView] = useState('monthly');
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
-  const [showReconciliation, setShowReconciliation] = useState(false);
   const [signUpItems, setSignUpItems] = useState(null);
   const [, forceTick] = useState(0);
 
@@ -328,10 +218,6 @@ export default function App() {
     } else {
       document.exitFullscreen?.();
     }
-  }
-
-  function openReconciliation() {
-    setShowReconciliation(true);
   }
 
   async function load() {
@@ -373,45 +259,6 @@ export default function App() {
     const hours = Math.floor(minutes / 60);
     return `${hours} hour${hours === 1 ? '' : 's'} ago`;
   }
-
-  // ---- Reconciliation: Sign Up board's "Live" items vs the country
-  // boards' own completion status, cross-referenced via the board-relation
-  // link columns in both directions ----
-  const reconciliation = useMemo(() => {
-    if (!signUpItems) return null;
-
-    // Match names loosely rather than requiring an exact string match \u2014
-    // small formatting differences between how the two boards display the
-    // same site (extra spaces, punctuation, casing) shouldn't cause a false
-    // "no link found" result.
-    const normalize = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const itemsByNormName = new Map(items.map((i) => [normalize(i.name), i]));
-    const signUpByNormName = new Map(signUpItems.map((i) => [normalize(i.name), i]));
-
-    // Direction A: Sign Up says Live, but the linked country-board item
-    // isn't classified live (or no link exists at all).
-    const signUpLiveNotReflected = signUpItems
-      .filter((s) => (s.installPhase || '').toLowerCase() === 'live')
-      .map((s) => {
-        const linked = s.linkedInstallBauNames.map((n) => itemsByNormName.get(normalize(n))).filter(Boolean);
-        const anyLive = linked.some((li) => isLiveItem(li));
-        return { signUpItem: s, linked, rawNames: s.linkedInstallBauNames, ok: anyLive };
-      })
-      .filter((r) => !r.ok);
-
-    // Direction B: a country-board item is classified live, but its linked
-    // Sign Up item doesn't say Live (or no link exists at all).
-    const countryLiveNotReflected = items
-      .filter(isLiveItem)
-      .map((c) => {
-        const linked = c.linkedSignUpNames.map((n) => signUpByNormName.get(normalize(n))).filter(Boolean);
-        const anyLive = linked.some((li) => (li.installPhase || '').toLowerCase() === 'live');
-        return { countryItem: c, linked, rawNames: c.linkedSignUpNames, ok: anyLive };
-      })
-      .filter((r) => !r.ok);
-
-    return { signUpLiveNotReflected, countryLiveNotReflected };
-  }, [items, signUpItems]);
 
   // Top-line counts are completed/live installs only (matching each
   // board's status or Group as classified by isLiveItem), not every item
@@ -615,59 +462,6 @@ export default function App() {
       .map((d) => ({ ...d, label: formatYearMonth(d.ym) }));
   }, [items]);
 
-  // ---- 2026 calendar-year goal: 500 sites installed Jan\u2013Dec 2026,
-  // projected using the average pace across 2026's own months only (a
-  // truer "current run rate" than blending in pre-2026 activity) ----
-  const yearGoal = useMemo(() => {
-    const now = new Date();
-    const yearCount = items.filter(
-      (i) => isLiveItem(i) && i.installDate && new Date(i.installDate) >= YEAR_START && new Date(i.installDate) <= YEAR_END
-    ).length;
-    const pct = Math.min(100, (yearCount / YEAR_TARGET_SITES) * 100);
-    const daysRemaining = Math.max(0, Math.ceil((YEAR_END - now) / 86400000));
-
-    // Where we should be today if progress were spread evenly across the
-    // whole calendar year, so we can see exactly how far ahead/behind that
-    // straight-line pace we are right now.
-    const elapsedDays = Math.max(0, Math.round((now - YEAR_START) / 86400000));
-    const totalDaysInYear = Math.round((YEAR_END - YEAR_START) / 86400000);
-    const expectedByNow = Math.round(Math.min(1, elapsedDays / totalDaysInYear) * YEAR_TARGET_SITES);
-    const expectedPct = Math.min(100, (expectedByNow / YEAR_TARGET_SITES) * 100);
-    const behindBy = yearCount - expectedByNow;
-
-    const months2026 = monthlyCompletedRaw.filter((m) => m.ym.startsWith('2026'));
-    const avgPace = months2026.length > 0
-      ? months2026.reduce((sum, m) => sum + m.count, 0) / months2026.length
-      : 0;
-
-    let projectedLabel = null;
-    let onTrack = null;
-    if (yearCount >= YEAR_TARGET_SITES) {
-      onTrack = true;
-    } else if (avgPace > 0) {
-      const monthsNeeded = (YEAR_TARGET_SITES - yearCount) / avgPace;
-      const projectedDate = new Date(now.getFullYear(), now.getMonth() + monthsNeeded, now.getDate());
-      projectedLabel = projectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      onTrack = projectedDate <= YEAR_END;
-    }
-
-    // Required run rate: (target - current) / months left, using whole
-    // calendar months remaining including the current one \u2014 tells you
-    // exactly what pace is needed from here to still hit the target by
-    // 31 Dec, independent of the historical average above.
-    const remaining = Math.max(0, YEAR_TARGET_SITES - yearCount);
-    const monthsLeft = Math.max(
-      1,
-      (YEAR_END.getFullYear() * 12 + YEAR_END.getMonth()) - (now.getFullYear() * 12 + now.getMonth()) + 1
-    );
-    const requiredRunRate = yearCount >= YEAR_TARGET_SITES ? 0 : Math.round((remaining / monthsLeft) * 10) / 10;
-
-    return {
-      current: yearCount, pct, daysRemaining, avgPace: Math.round(avgPace * 10) / 10, projectedLabel, onTrack,
-      expectedByNow, expectedPct, behindBy, requiredRunRate, monthsLeft
-    };
-  }, [items, monthlyCompletedRaw]);
-
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -716,17 +510,6 @@ export default function App() {
                 )}
               </div>
             )}
-            {showReconciliation ? (
-              <Button variant="outline" size="sm" className="h-8 text-xs w-fit" onClick={() => setShowReconciliation(false)}>
-                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                Back to Dashboard
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" className="h-8 text-xs w-fit" onClick={openReconciliation}>
-                <ScanSearch className="w-3.5 h-3.5 mr-1.5" />
-                Reconciliation
-              </Button>
-            )}
             <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={toggleFullscreen} title={isFullscreen ? 'Exit full screen' : 'Full screen'}>
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </Button>
@@ -739,9 +522,7 @@ export default function App() {
       </header>
 
       <main className="px-4 sm:px-6 py-4 sm:py-6 max-w-[1440px] mx-auto space-y-6">
-        {showReconciliation ? (
-          <ReconciliationView loading={false} error={null} reconciliation={reconciliation} />
-        ) : loading ? (
+        {loading ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24">
             <div className="flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -760,31 +541,6 @@ export default function App() {
                 <span className="ml-1">Updating dashboard{'\u2026'}</span>
               </div>
             )}
-
-            {/* ---- 2026 informal goal: 500 sites ---- */}
-            <GoalCard
-              title="2026 Goal: 500 Sites (Jan–Dec)"
-              current={yearGoal.current}
-              target={YEAR_TARGET_SITES}
-              pct={yearGoal.pct}
-              daysRemaining={yearGoal.daysRemaining}
-              avgPace={yearGoal.avgPace}
-              avgPaceLabel="2026 avg pace"
-              projectedLabel={yearGoal.projectedLabel}
-              onTrack={yearGoal.onTrack}
-              expectedByNow={yearGoal.expectedByNow}
-              expectedPct={yearGoal.expectedPct}
-              behindBy={yearGoal.behindBy}
-              requiredRunRate={yearGoal.requiredRunRate}
-              monthsLeft={yearGoal.monthsLeft}
-            />
-
-            {/* ---- Country breakdown, one line, with sparkline trend ---- */}
-            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              {COUNTRIES.map((c) => (
-                <CountryCard key={c} country={c} flag={FLAGS[c]} value={countryCompletedCounts[c] || 0} trend={countryTrends[c]} />
-              ))}
-            </div>
 
             {/* ---- Last month final tally, current / next / +2 month callouts, FTR placeholder ---- */}
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
@@ -863,7 +619,7 @@ export default function App() {
                       <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
                       {FORECAST_COLUMN_ORDER.map((c) => (
                         <th key={c} className="px-5 py-2.5 text-center text-xs font-medium text-muted-foreground border-l border-border">
-                          {COUNTRY_DISPLAY_NAME[c]}
+                          {FLAGS[c]} {COUNTRY_DISPLAY_NAME[c]}
                         </th>
                       ))}
                       <th className="px-5 py-2.5 text-center text-xs font-semibold border-l border-border">Total</th>
