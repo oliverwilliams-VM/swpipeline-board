@@ -6,7 +6,8 @@ const BOARDS = [
   { id: '7519472262', name: 'Install \u2192 BAU', country: 'IE' },
   { id: '5757397415', name: 'Install \u2192 BAU', country: 'NL' },
   { id: '5757508504', name: 'Install \u2192 BAU', country: 'DE' },
-  { id: '5756651462', name: 'Install \u2192 BAU', country: 'FI' }
+  { id: '5756651462', name: 'Install \u2192 BAU', country: 'FI' },
+  { id: '9491284603', name: 'IMAC (unverified)', country: 'All' }
 ];
 
 export default async function handler(req, res) {
