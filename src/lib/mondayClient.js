@@ -27,7 +27,11 @@ function parseLinkedNames(rawItem, columnId) {
 
 function shapeCountryItem(rawItem, board) {
   const valuesById = {};
-  rawItem.column_values.forEach((cv) => { valuesById[cv.id] = cv.text; });
+  // Board-relation and mirror columns often don't reliably populate the
+  // generic `text` field \u2014 `display_value` is the one that actually shows
+  // what Monday's UI displays, so it's preferred everywhere, falling back
+  // to `text` for ordinary column types where display_value isn't set.
+  rawItem.column_values.forEach((cv) => { valuesById[cv.id] = cv.display_value || cv.text; });
   return {
     id: rawItem.id,
     name: rawItem.name,
@@ -42,7 +46,7 @@ function shapeCountryItem(rawItem, board) {
 
 function shapeSignUpItem(rawItem) {
   const valuesById = {};
-  rawItem.column_values.forEach((cv) => { valuesById[cv.id] = cv.text; });
+  rawItem.column_values.forEach((cv) => { valuesById[cv.id] = cv.display_value || cv.text; });
   return {
     id: rawItem.id,
     name: rawItem.name,

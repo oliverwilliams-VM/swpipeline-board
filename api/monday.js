@@ -48,6 +48,9 @@ async function fetchAllItemsForBoard(boardId, columnIds) {
               ... on BoardRelationValue {
                 display_value
               }
+              ... on MirrorValue {
+                display_value
+              }
             }
           }
         }
