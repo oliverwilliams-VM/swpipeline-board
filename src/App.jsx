@@ -370,14 +370,12 @@ export default function App() {
     };
     const classifyLayout = (text) => {
       const t = (text || '').trim().toLowerCase();
-      // Disrupt and Interrupt: match anywhere in the text, regardless of
-      // whatever else is in the label (so "Subway Disrupt 2.0" counts as
-      // Disrupt too, not just plain "Disrupt ... Kiosk"). "D2.0 BAU" is
-      // also folded into Disrupt even though it doesn't contain the word
-      // itself. Small Form Factor: requires an exact match on the real
-      // board wording \u2014 no substring/partial matching, unlike the other two.
-      if (t.includes('interrupt')) return 'interrupt';
-      if (t.includes('disrupt') || t === 'd2.0 bau' || t === 'd.20 bau') return 'disrupt';
+      // Layout Type on the board has been simplified down to exactly
+      // these 3 options, so exact matching is enough now \u2014 no more
+      // "Subway Disrupt 2.0" / "D2.0 BAU" / "Flyte 22\" Kiosks" variants
+      // to account for separately.
+      if (t === 'interrupt') return 'interrupt';
+      if (t === 'disrupt') return 'disrupt';
       if (t === 'small form factor') return 'smallFormat';
       return null;
     };
@@ -999,7 +997,6 @@ export default function App() {
               accent="hsl(var(--chart-1))"
               title="Estate Overview"
               open={activeTab === 'forecast'}
-              footer="Interrupt / Disrupt / Small Format now only count sites that are actually live (cross-checked against the linked country-board record), matching how Total Sites Live is worked out. A live site can occasionally sit outside all three categories (e.g. Layout Type = “Subway Disrupt 2.0” or “D2.0 BAU”), so the estate total below and Total Sites Live may not be perfectly identical — but should now be close, not wildly apart."
             >
               <div className="px-5 py-4 border-b border-border flex items-baseline gap-3">
                 <span className="text-4xl font-bold tabular-nums">
