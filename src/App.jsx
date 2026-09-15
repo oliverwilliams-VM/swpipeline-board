@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download, CheckCircle2, CalendarClock } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -72,15 +72,24 @@ function AnimatedNumber({ value }) {
   return <>{display.toLocaleString()}</>;
 }
 
-function KPICard({ label, value, hero = false, onClick, active = false }) {
+function KPICard({ label, value, hero = false, onClick, active = false, type }) {
+  const typeConfig = {
+    live: { color: 'hsl(var(--status-complete))', Icon: CheckCircle2 },
+    scheduled: { color: 'hsl(var(--status-scheduled))', Icon: CalendarClock }
+  }[type];
+
   return (
     <div
       className={`border rounded-md p-4 bg-[hsl(var(--surface-1))] transition-colors ${
         onClick ? 'cursor-pointer hover:border-primary' : ''
       } ${active ? 'border-primary' : 'border-border'}`}
+      style={typeConfig ? { borderTop: `3px solid ${typeConfig.color}` } : undefined}
       onClick={onClick}
     >
-      <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+        {typeConfig && <typeConfig.Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: typeConfig.color }} />}
+        <span className="line-clamp-2">{label}</span>
+      </div>
       <div className={`font-semibold tabular-nums ${hero ? 'text-4xl' : 'text-3xl'}`}>{value}</div>
     </div>
   );
@@ -740,6 +749,7 @@ export default function App() {
                 label={`Live \u2014 ${scheduledByMonth[0]?.label}`}
                 value={scheduledByMonth[0]?.installedActual ?? 0}
                 hero
+                type="live"
                 onClick={() => toggleCard(scheduledByMonth[0]?.ym, 'live', scheduledByMonth[0]?.label)}
                 active={expandedCard?.ym === scheduledByMonth[0]?.ym && expandedCard?.type === 'live'}
               />
@@ -747,6 +757,7 @@ export default function App() {
                 label={`Scheduled \u2014 ${scheduledByMonth[1]?.label}`}
                 value={scheduledByMonth[1]?.total ?? 0}
                 hero
+                type="scheduled"
                 onClick={() => toggleCard(scheduledByMonth[1]?.ym, 'scheduled', scheduledByMonth[1]?.label)}
                 active={expandedCard?.ym === scheduledByMonth[1]?.ym && expandedCard?.type === 'scheduled'}
               />
@@ -754,6 +765,7 @@ export default function App() {
                 label={`Live \u2014 ${scheduledByMonth[1]?.label}`}
                 value={`${scheduledByMonth[1]?.installedActual ?? 0}${scheduledByMonth[1]?.pct !== null ? ` (${scheduledByMonth[1]?.pct}%)` : ''}`}
                 hero
+                type="live"
                 onClick={() => toggleCard(scheduledByMonth[1]?.ym, 'live', scheduledByMonth[1]?.label)}
                 active={expandedCard?.ym === scheduledByMonth[1]?.ym && expandedCard?.type === 'live'}
               />
@@ -763,6 +775,7 @@ export default function App() {
                   label={`Scheduled \u2014 ${m.label}`}
                   value={m.total}
                   hero
+                  type="scheduled"
                   onClick={() => toggleCard(m.ym, 'scheduled', m.label)}
                   active={expandedCard?.ym === m.ym && expandedCard?.type === 'scheduled'}
                 />
