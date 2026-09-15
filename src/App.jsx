@@ -1155,6 +1155,7 @@ export default function App() {
                             </th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Remodel/NRO</th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">RetroFit</th>
+                            <th className="px-3 py-3 text-center text-sm font-semibold border-l border-border">Total</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -1170,6 +1171,9 @@ export default function App() {
                                   {table[clusterKey][category]}
                                 </td>
                               ))}
+                              <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">
+                                {table[clusterKey].remodelNro + table[clusterKey].retrofit}
+                              </td>
                             </tr>
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
@@ -1183,6 +1187,9 @@ export default function App() {
                                 {totals[category]}
                               </td>
                             ))}
+                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">
+                              {totals.remodelNro + totals.retrofit}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
