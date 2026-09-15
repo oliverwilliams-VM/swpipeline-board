@@ -415,12 +415,38 @@ export default function App() {
     });
 
     const totalOf = (row) => COUNTRIES.reduce((sum, c) => sum + (row[c] || 0), 0);
+    const allCountedSiteIds = new Set([
+      ...countedSiteIds.interrupt, ...countedSiteIds.disrupt, ...countedSiteIds.smallFormat
+    ]);
     return {
       interrupt: { ...counts.interrupt, Total: totalOf(counts.interrupt) },
       disrupt: { ...counts.disrupt, Total: totalOf(counts.disrupt) },
-      smallFormat: { ...counts.smallFormat, Total: totalOf(counts.smallFormat) }
+      smallFormat: { ...counts.smallFormat, Total: totalOf(counts.smallFormat) },
+      allCountedSiteIds
     };
   }, [signUpItems, items]);
+
+  // ---- Diagnostic: every live site that didn't land in Interrupt,
+  // Disrupt or Small Format above \u2014 either because its own Layout Type is
+  // something else entirely (e.g. "Awaiting Floor Plan"), or because no
+  // linked Sign Up record could be found for it at all. ----
+  const uncategorizedLiveSites = useMemo(() => {
+    const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const signUpByNormName = new Map((signUpItems || []).map((s) => [normalizeName(s.name), s]));
+    return items
+      .filter(isLiveItem)
+      .filter((i) => !pipelineForecast.allCountedSiteIds.has(i.id))
+      .map((i) => {
+        const linkedSignUp = i.linkedSignUpNames.map((n) => signUpByNormName.get(normalizeName(n))).find(Boolean);
+        return {
+          id: i.id,
+          name: i.name,
+          country: i.country,
+          layoutType: linkedSignUp ? (linkedSignUp.layoutType || '(blank)') : null
+        };
+      })
+      .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+  }, [items, signUpItems, pipelineForecast]);
 
   // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
   // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
@@ -1010,6 +1036,28 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              {uncategorizedLiveSites.length > 0 && (
+                <div className="border-t border-border px-5 py-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    {uncategorizedLiveSites.length} live site{uncategorizedLiveSites.length === 1 ? '' : 's'} not counted in any category above:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {uncategorizedLiveSites.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
+                        title={s.layoutType === null ? 'No linked Sign Up record found' : `Layout Type: ${s.layoutType}`}
+                      >
+                        <span>{FLAGS[s.country]}</span>
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground">
+                          {s.layoutType === null ? '\u2014 no Sign Up link' : `\u2014 ${s.layoutType}`}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard
