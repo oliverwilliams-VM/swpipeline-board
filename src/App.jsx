@@ -816,7 +816,7 @@ export default function App() {
               icon={CalendarCheck}
               accent="hsl(var(--chart-4))"
               title="Scheduled vs Actual by Country"
-              footer="Each cell shows the hit rate (Actual ÷ Scheduled) with the raw numbers underneath."
+              footer="Each cell shows the hit rate, with the raw counts underneath — ✓ = Live, 📅 = Scheduled."
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -850,7 +850,16 @@ export default function App() {
                               <div className="text-sm font-semibold tabular-nums" style={{ color: pctColor }}>
                                 {pct === null ? '\u2014' : `${pct}%`}
                               </div>
-                              <div className="text-xs text-muted-foreground tabular-nums">{actual} / {sched}</div>
+                              <div className="flex items-center justify-center gap-2.5 text-xs text-muted-foreground tabular-nums">
+                                <span className="inline-flex items-center gap-1" title="Live">
+                                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: 'hsl(var(--status-complete))' }} />
+                                  {actual}
+                                </span>
+                                <span className="inline-flex items-center gap-1" title="Scheduled">
+                                  <CalendarClock className="w-3 h-3 flex-shrink-0" style={{ color: 'hsl(var(--status-scheduled))' }} />
+                                  {sched}
+                                </span>
+                              </div>
                             </td>
                           );
                         })}
