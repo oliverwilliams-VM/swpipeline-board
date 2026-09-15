@@ -137,14 +137,17 @@ function PlaceholderCard({ label }) {
 // grey cards.
 function SectionCard({ icon: Icon, accent, title, footer, children, open = true }) {
   return (
-    <div className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden section-card" style={{ borderTop: `3px solid ${accent}` }}>
+    <div
+      className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden section-card"
+      style={{ borderTop: `3px solid ${accent}`, display: open ? 'block' : 'none' }}
+    >
       <div className="px-5 py-3 border-b border-border flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accent}22` }}>
           <Icon className="w-4 h-4" style={{ color: accent }} />
         </div>
         <h3 className="text-sm font-semibold flex-1">{title}</h3>
       </div>
-      <div className="section-body" style={{ display: open ? 'block' : 'none' }}>
+      <div className="section-body">
         {children}
         {footer && (
           <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">{footer}</p>
