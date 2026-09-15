@@ -26,7 +26,7 @@ const FORECAST_COLUMN_ORDER = ['UK', 'IE', 'FI', 'NL', 'DE'];
 // picked via the icon-radio tab bar. Icon/accent match each SectionCard.
 const SECTION_TABS = [
   { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
-  { key: 'forecast', label: 'Pipeline Forecast', icon: Package, accent: 'hsl(var(--chart-1))' },
+  { key: 'forecast', label: 'Estate Overview', icon: Package, accent: 'hsl(var(--chart-1))' },
   { key: 'active', label: 'Active Pipeline', icon: Workflow, accent: 'hsl(var(--chart-2))' },
   { key: 'bau', label: 'BAU Forecast', icon: ClipboardList, accent: 'hsl(var(--chart-5))' },
   { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' }
@@ -381,6 +381,18 @@ export default function App() {
       return null;
     };
 
+    // Layout Type lives on the Sign Up board and covers every record ever
+    // created there, regardless of whether that site has actually gone
+    // live yet \u2014 so this needs to be cross-checked against the linked
+    // country-board item's real live status, the same way reconciliation
+    // does it, or the totals wildly overcount vs "Total Sites Live".
+    const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const liveItemsByNormName = new Map(
+      items.filter(isLiveItem).map((i) => [normalizeName(i.name), i])
+    );
+    const isSignUpItemLive = (item) =>
+      item.linkedInstallBauNames.some((n) => liveItemsByNormName.has(normalizeName(n)));
+
     const counts = { interrupt: {}, disrupt: {}, smallFormat: {} };
     COUNTRIES.forEach((c) => { counts.interrupt[c] = 0; counts.disrupt[c] = 0; counts.smallFormat[c] = 0; });
 
@@ -388,6 +400,7 @@ export default function App() {
       const country = normalizeCountry(item.country);
       const category = classifyLayout(item.layoutType);
       if (!country || !category) return;
+      if (!isSignUpItemLive(item)) return;
       counts[category][country] += 1;
     });
 
@@ -397,7 +410,7 @@ export default function App() {
       disrupt: { ...counts.disrupt, Total: totalOf(counts.disrupt) },
       smallFormat: { ...counts.smallFormat, Total: totalOf(counts.smallFormat) }
     };
-  }, [signUpItems]);
+  }, [signUpItems, items]);
 
   // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
   // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
@@ -932,10 +945,16 @@ export default function App() {
             <SectionCard
               icon={Package}
               accent="hsl(var(--chart-1))"
-              title="Subway Pipeline Forecast"
+              title="Estate Overview"
               open={activeTab === 'forecast'}
-              footer="Interrupt / Disrupt / Small Format counts come from the Sign Up → Ready to Go board's Layout Type field — a different source to the Total Sites Live row above, which uses the 5 country boards."
+              footer="Interrupt / Disrupt / Small Format now only count sites that are actually live (cross-checked against the linked country-board record), matching how Total Sites Live is worked out. A live site can occasionally sit outside all three categories (e.g. Layout Type = “Subway Disrupt 2.0” or “D2.0 BAU”), so the estate total below and Total Sites Live may not be perfectly identical — but should now be close, not wildly apart."
             >
+              <div className="px-5 py-4 border-b border-border flex items-baseline gap-3">
+                <span className="text-4xl font-bold tabular-nums">
+                  {pipelineForecast.interrupt.Total + pipelineForecast.disrupt.Total + pipelineForecast.smallFormat.Total}
+                </span>
+                <span className="text-sm text-muted-foreground">Estate Total (Interrupt + Disrupt + Small Format)</span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
