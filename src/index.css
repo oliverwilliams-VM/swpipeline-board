@@ -28,7 +28,6 @@ body { font-family: var(--font-body); font-size: 13px; background-color: hsl(var
      show everything, even if the live view is deliberately collapsed
      down for a cleaner presentation. */
   .section-body { display: block !important; }
-  .section-chevron { display: none !important; }
 
   /* Buttons, refresh controls etc. serve no purpose on a printed page. */
   .no-print { display: none !important; }

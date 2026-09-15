@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download, CheckCircle2, CalendarClock, AlertTriangle } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -21,6 +21,16 @@ const COUNTRIES = COUNTRY_BOARDS.map((b) => b.country);
 // Column order and full display names for the Subway Pipeline Forecast
 // table specifically, matching the existing reference report's layout.
 const FORECAST_COLUMN_ORDER = ['UK', 'IE', 'FI', 'NL', 'DE'];
+
+// The 5 detail sections below the KPI cards \u2014 one is shown at a time,
+// picked via the icon-radio tab bar. Icon/accent match each SectionCard.
+const SECTION_TABS = [
+  { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
+  { key: 'forecast', label: 'Pipeline Forecast', icon: Package, accent: 'hsl(var(--chart-1))' },
+  { key: 'active', label: 'Active Pipeline', icon: Workflow, accent: 'hsl(var(--chart-2))' },
+  { key: 'bau', label: 'BAU Forecast', icon: ClipboardList, accent: 'hsl(var(--chart-5))' },
+  { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' }
+];
 const COUNTRY_DISPLAY_NAME = { UK: 'UK', IE: 'Ireland', FI: 'Finland', NL: 'Netherlands', DE: 'Germany' };
 
 function countryColor(country) {
@@ -125,21 +135,15 @@ function PlaceholderCard({ label }) {
 // and a small icon badge, so the page can be scanned by section at a
 // glance in a live presentation rather than reading a wall of identical
 // grey cards.
-function SectionCard({ icon: Icon, accent, title, footer, children, defaultOpen = true }) {
-  const [open, setOpen] = useState(defaultOpen);
+function SectionCard({ icon: Icon, accent, title, footer, children, open = true }) {
   return (
     <div className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden section-card" style={{ borderTop: `3px solid ${accent}` }}>
-      <button
-        type="button"
-        className="w-full px-5 py-3 border-b border-border flex items-center gap-2.5 text-left"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accent}22` }}>
           <Icon className="w-4 h-4" style={{ color: accent }} />
         </div>
         <h3 className="text-sm font-semibold flex-1">{title}</h3>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform section-chevron ${open ? '' : '-rotate-90'}`} />
-      </button>
+      </div>
       <div className="section-body" style={{ display: open ? 'block' : 'none' }}>
         {children}
         {footer && (
@@ -147,6 +151,27 @@ function SectionCard({ icon: Icon, accent, title, footer, children, defaultOpen 
         )}
       </div>
     </div>
+  );
+}
+
+// One icon-radio button in the section tab bar \u2014 a real <input type="radio">
+// under the hood for genuine radio semantics, styled as a card with the
+// section's own icon standing in for an image.
+function SectionTabRadio({ name, checked, onChange, icon: Icon, label, accent }) {
+  return (
+    <label
+      className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-md border cursor-pointer transition-colors flex-1 min-w-[110px]"
+      style={{
+        borderColor: checked ? accent : 'hsl(var(--border))',
+        backgroundColor: checked ? `${accent}15` : 'hsl(var(--surface-1))'
+      }}
+    >
+      <input type="radio" name={name} checked={checked} onChange={onChange} className="sr-only" />
+      <div className="w-9 h-9 rounded-md flex items-center justify-center" style={{ backgroundColor: `${accent}22` }}>
+        <Icon className="w-5 h-5" style={{ color: accent }} />
+      </div>
+      <span className="text-xs font-medium text-center leading-tight">{label}</span>
+    </label>
   );
 }
 
@@ -225,6 +250,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chartView, setChartView] = useState('monthly');
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
+  const [activeTab, setActiveTab] = useState('scheduled');
   const [signUpItems, setSignUpItems] = useState(null);
   const [imacItems, setImacItems] = useState(null);
   const [, forceTick] = useState(0);
@@ -828,10 +854,25 @@ export default function App() {
               </div>
             )}
 
+            <div className="flex flex-wrap gap-3 no-print">
+              {SECTION_TABS.map((tab) => (
+                <SectionTabRadio
+                  key={tab.key}
+                  name="section-tab"
+                  checked={activeTab === tab.key}
+                  onChange={() => setActiveTab(tab.key)}
+                  icon={tab.icon}
+                  label={tab.label}
+                  accent={tab.accent}
+                />
+              ))}
+            </div>
+
             <SectionCard
               icon={CalendarCheck}
               accent="hsl(var(--chart-4))"
               title="Scheduled vs Actual by Country"
+              open={activeTab === 'scheduled'}
               footer="Each cell shows the hit rate, with the raw counts underneath — ✓ = Live, 📅 = Scheduled."
             >
               <div className="overflow-x-auto">
@@ -890,6 +931,7 @@ export default function App() {
               icon={Package}
               accent="hsl(var(--chart-1))"
               title="Subway Pipeline Forecast"
+              open={activeTab === 'forecast'}
               footer="Interrupt / Disrupt / Small Format counts come from the Sign Up → Ready to Go board's Layout Type field — a different source to the Total Sites Live row above, which uses the 5 country boards."
             >
               <div className="overflow-x-auto">
@@ -943,7 +985,7 @@ export default function App() {
               icon={Workflow}
               accent="hsl(var(--chart-2))"
               title="Active Pipeline Breakdown"
-              defaultOpen={false}
+              open={activeTab === 'active'}
               footer="Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity)."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
@@ -991,7 +1033,7 @@ export default function App() {
               icon={ClipboardList}
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit, IMACs"
-              defaultOpen={false}
+              open={activeTab === 'bau'}
               footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”); IMACs from the separate IMAC board."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
@@ -1052,52 +1094,10 @@ export default function App() {
             </SectionCard>
 
             <SectionCard
-              icon={Wrench}
-              accent="hsl(var(--chart-3))"
-              title="IMAC Status"
-              footer="From the separate IMAC Work board (Install/Move/Add/Change requests) — a different program to the rest of this dashboard."
-            >
-              <div className="p-5">
-                <ChartContainer config={{}} className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        { label: 'Total', value: imacBreakdown.total, color: 'hsl(var(--chart-1))' },
-                        { label: 'Completed', value: imacBreakdown.completed, color: 'hsl(var(--status-complete))' },
-                        { label: 'Cancelled', value: imacBreakdown.cancelled, color: 'hsl(var(--destructive))' },
-                        { label: 'Rejected', value: imacBreakdown.rejected, color: 'hsl(var(--destructive))' },
-                        { label: 'Awaiting Payment', value: imacBreakdown.awaitingPayment, color: 'hsl(var(--status-scheduled))' },
-                        { label: 'Subway to Review', value: imacBreakdown.subwayToReview, color: 'hsl(var(--status-scheduled))' },
-                        { label: 'Awaiting Floorplan', value: imacBreakdown.awaitingFloorplan, color: 'hsl(var(--status-scheduled))' },
-                        { label: 'FP Issues', value: imacBreakdown.freedomPayIssues, color: 'hsl(var(--status-scheduled))' },
-                        { label: 'Date Booked', value: imacBreakdown.dateBooked, color: 'hsl(var(--status-scheduled))' }
-                      ]}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border-subtle))" />
-                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))' }} fontSize={11} angle={-30} textAnchor="end" height={80} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))' }} fontSize={12} allowDecimals={false} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                        {[
-                          imacBreakdown.total, imacBreakdown.completed, imacBreakdown.cancelled, imacBreakdown.rejected,
-                          imacBreakdown.awaitingPayment, imacBreakdown.subwayToReview, imacBreakdown.awaitingFloorplan,
-                          imacBreakdown.freedomPayIssues, imacBreakdown.dateBooked
-                        ].map((_, index) => {
-                          const colors = ['hsl(var(--chart-1))', 'hsl(var(--status-complete))', 'hsl(var(--destructive))', 'hsl(var(--destructive))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))'];
-                          return <Cell key={index} fill={colors[index]} />;
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
-            </SectionCard>
-
-            <SectionCard
               icon={AlertTriangle}
               accent="hsl(var(--destructive))"
               title={`Priority Sites \u2014 Candidates (${stuckSiteCandidates.length})`}
-              defaultOpen={false}
+              open={activeTab === 'priority'}
               footer="A starting shortlist, not the finished Priority Sites slide — these are sites whose own Site Status already flags a problem (risk, hold, reschedule, outstanding payment, etc.), pulled straight from each country board. Still needs a person's judgement on which are genuinely priority, plus the commentary and owner for each."
             >
               <div className="overflow-x-auto">
