@@ -517,9 +517,10 @@ export default function App() {
   }, [signUpItems]);
 
   // ---- BAU Forecast tables (This Month "Actual" / Next Month "Forecast"):
-  // Remodel/NRO, RetroFit and Misc all come from the Sign Up board's
-  // Project Type field, bucketed by its H&K Shipping Date. IMACs was
-  // dropped from this table entirely (was previously sourced from a
+  // Remodel/NRO and RetroFit come from the Sign Up board's Store Opening
+  // Type field, bucketed by its H&K Shipping Date. "Re-Location" and
+  // "Kiosk Reposition/Relocation" are excluded entirely, and IMACs was
+  // dropped from this table entirely too (was previously sourced from a
   // separate board, no longer tracked here). ----
   const bauForecastTables = useMemo(() => {
     const now = new Date();
@@ -539,11 +540,12 @@ export default function App() {
       if (country === 'NL') return 'NL';
       return null;
     };
-    const classifyProjectType = (text) => {
+    const classifyStoreOpeningType = (text) => {
       const t = (text || '').trim().toLowerCase();
-      if (t === 'remodel' || t === 'tuscany' || t === 'tuscany ii' || t === 'nro') return 'remodelNro';
-      if (t === 'retro - metro' || t === 'retro - fresh forward') return 'retrofit';
-      if (t === 'check required' || t === 'tbd') return 'misc';
+      // "Re-Location" / "Kiosk Reposition/Relocation" are deliberately
+      // excluded entirely \u2014 not counted in either category.
+      if (t.includes('re-model') || t.includes('new restaurant opening')) return 'remodelNro';
+      if (t.includes('retrofit')) return 'retrofit';
       return null;
     };
     const CLUSTERS = ['DE', 'UKI', 'NL'];
@@ -554,21 +556,20 @@ export default function App() {
       const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
       const table = {};
-      CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0, misc: 0 }; });
+      CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0 }; });
 
       (signUpItems || []).forEach((item) => {
         if (yearMonth(item.hkShippingDate) !== ym) return;
         const cluster = clusterOf(normalizeCountry(item.country));
-        const category = classifyProjectType(item.projectType);
+        const category = classifyStoreOpeningType(item.storeOpeningType);
         if (!cluster || !category) return;
         table[cluster][category] += 1;
       });
 
-      const totals = { remodelNro: 0, retrofit: 0, misc: 0 };
+      const totals = { remodelNro: 0, retrofit: 0 };
       CLUSTERS.forEach((c) => {
         totals.remodelNro += table[c].remodelNro;
         totals.retrofit += table[c].retrofit;
-        totals.misc += table[c].misc;
       });
 
       return { ym, label, table, totals };
@@ -602,17 +603,18 @@ export default function App() {
       if (country === 'NL') return 'NL';
       return null;
     };
-    const classifyProjectType = (text) => {
+    const classifyStoreOpeningType = (text) => {
       const t = (text || '').trim().toLowerCase();
-      if (t === 'remodel' || t === 'tuscany' || t === 'tuscany ii' || t === 'nro') return 'remodelNro';
-      if (t === 'retro - metro' || t === 'retro - fresh forward') return 'retrofit';
-      if (t === 'check required' || t === 'tbd') return 'misc';
+      // "Re-Location" / "Kiosk Reposition/Relocation" are deliberately
+      // excluded entirely \u2014 not counted in either category.
+      if (t.includes('re-model') || t.includes('new restaurant opening')) return 'remodelNro';
+      if (t.includes('retrofit')) return 'retrofit';
       return null;
     };
 
     return (signUpItems || [])
       .filter((item) => yearMonth(item.hkShippingDate) === monthData.ym)
-      .filter((item) => classifyProjectType(item.projectType) === category)
+      .filter((item) => classifyStoreOpeningType(item.storeOpeningType) === category)
       .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
       .filter((item) => {
         const itemCluster = clusterOf(item.countryCode);
@@ -1141,7 +1143,7 @@ export default function App() {
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit"
               open={activeTab === 'bau'}
-              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”), bucketed by H&K Shipping Date. Click any number to see the sites behind it."
+              footer="Remodel/NRO and RetroFit come from the Sign Up board's Store Opening Type field, bucketed by H&K Shipping Date. “Re-Location” and “Kiosk Reposition/Relocation” are excluded entirely. Click any number to see the sites behind it."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                 {[
@@ -1154,7 +1156,7 @@ export default function App() {
                     ['UKI', 'UKI BAU'],
                     ['NL', 'NL BAU']
                   ];
-                  const categoryLabels = { remodelNro: 'Remodel/NRO', retrofit: 'RetroFit', misc: 'Misc' };
+                  const categoryLabels = { remodelNro: 'Remodel/NRO', retrofit: 'RetroFit' };
                   const cellClass = (cluster, category) => {
                     const isActive = expandedBauCell?.monthKey === key && expandedBauCell?.cluster === cluster && expandedBauCell?.category === category;
                     return `px-3 py-3 text-sm text-center tabular-nums cursor-pointer transition-colors hover:bg-[hsl(var(--surface-2))] ${isActive ? 'text-primary font-semibold' : ''}`;
@@ -1169,14 +1171,13 @@ export default function App() {
                             </th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Remodel/NRO</th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">RetroFit</th>
-                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Misc</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {clusterRows.map(([clusterKey, rowLabel]) => (
                             <tr key={clusterKey}>
                               <td className="px-4 py-3 text-sm text-muted-foreground">{rowLabel}</td>
-                              {['remodelNro', 'retrofit', 'misc'].map((category) => (
+                              {['remodelNro', 'retrofit'].map((category) => (
                                 <td
                                   key={category}
                                   className={cellClass(clusterKey, category)}
@@ -1189,7 +1190,7 @@ export default function App() {
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
                             <td className="px-4 py-3 text-sm font-semibold">Total Pipeline</td>
-                            {['remodelNro', 'retrofit', 'misc'].map((category) => (
+                            {['remodelNro', 'retrofit'].map((category) => (
                               <td
                                 key={category}
                                 className={`${cellClass(null, category)} font-semibold`}

@@ -50,7 +50,7 @@ function shapeSignUpItem(rawItem) {
     installPhase: valuesById[SIGNUP_BOARD.columns.installPhase] ?? null,
     country: valuesById[SIGNUP_BOARD.columns.country] ?? null,
     layoutType: valuesById[SIGNUP_BOARD.columns.layoutType] ?? null,
-    projectType: valuesById[SIGNUP_BOARD.columns.projectType] ?? null,
+    storeOpeningType: valuesById[SIGNUP_BOARD.columns.storeOpeningType] ?? null,
     hkShippingDate: valuesById[SIGNUP_BOARD.columns.hkShippingDate] ?? null,
     linkedInstallBauNames: parseLinkedNames(rawItem, SIGNUP_BOARD.columns.linkToInstallBau)
   };
