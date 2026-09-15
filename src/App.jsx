@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download, CheckCircle2, CalendarClock } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download, CheckCircle2, CalendarClock, AlertTriangle } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -526,6 +526,21 @@ export default function App() {
 
     return { thisMonth: buildMonthTable(0), nextMonth: buildMonthTable(1) };
   }, [signUpItems, imacItems]);
+
+  // ---- Priority Sites candidates: not a replacement for the manually
+  // curated Priority Sites slides (those need a person's judgment and
+  // commentary), but a starting shortlist of sites whose own Site Status
+  // already flags a problem \u2014 using the same field already fetched from
+  // all 5 country boards, so no new Monday lookup was needed. Excludes
+  // sites already live, since a stale status on a finished site isn't a
+  // real candidate. ----
+  const stuckSiteCandidates = useMemo(() => {
+    const STUCK_PATTERN = /risk|issue|hold|reschedul|outstanding|postponed/i;
+    return items
+      .filter((i) => !isLiveItem(i))
+      .filter((i) => STUCK_PATTERN.test(i.siteStatus || ''))
+      .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+  }, [items]);
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -1075,6 +1090,39 @@ export default function App() {
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              icon={AlertTriangle}
+              accent="hsl(var(--destructive))"
+              title={`Priority Sites \u2014 Candidates (${stuckSiteCandidates.length})`}
+              defaultOpen={false}
+              footer="A starting shortlist, not the finished Priority Sites slide — these are sites whose own Site Status already flags a problem (risk, hold, reschedule, outstanding payment, etc.), pulled straight from each country board. Still needs a person's judgement on which are genuinely priority, plus the commentary and owner for each."
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Site</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Country</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Site Status</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Install Phase</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {stuckSiteCandidates.length === 0 ? (
+                      <tr><td colSpan={4} className="px-5 py-4 text-sm text-muted-foreground">No sites currently flagged.</td></tr>
+                    ) : stuckSiteCandidates.map((site) => (
+                      <tr key={`${site.country}-${site.id}`} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                        <td className="px-5 py-3 text-sm font-medium">{site.name}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{FLAGS[site.country]} {site.country}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.siteStatus || '\u2014'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.installPhase || '\u2014'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </SectionCard>
           </div>
