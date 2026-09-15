@@ -5,7 +5,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
 import { useCountUp } from './lib/useCountUp';
-import { fetchCountryItems, fetchSignUpItems } from './lib/mondayClient';
+import { fetchCountryItems, fetchSignUpItems, fetchImacItems } from './lib/mondayClient';
 import { COUNTRY_BOARDS, isLiveItem } from './lib/boards';
 
 // A punchier, more saturated palette specifically for the market-share pie
@@ -188,6 +188,7 @@ export default function App() {
   const [chartView, setChartView] = useState('monthly');
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
   const [signUpItems, setSignUpItems] = useState(null);
+  const [imacItems, setImacItems] = useState(null);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -224,9 +225,10 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
+      const [countryData, signUpData, imacData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchImacItems()]);
       setItems(countryData);
       setSignUpItems(signUpData);
+      setImacItems(imacData);
       setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
@@ -239,9 +241,10 @@ export default function App() {
   async function refresh() {
     setRefetching(true);
     try {
-      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
+      const [countryData, signUpData, imacData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchImacItems()]);
       setItems(countryData);
       setSignUpItems(signUpData);
+      setImacItems(imacData);
       setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
@@ -378,8 +381,32 @@ export default function App() {
     };
   }, [signUpItems]);
 
-  // ---- Current / next / month-after install volume, based on each site's
-  // real Install Date rather than group names (more reliable across boards) ----
+  // ---- IMAC Status: a completely separate program (Install/Move/Add/
+  // Change requests) tracked on its own board. "Cancelled" is a Group on
+  // that board rather than a status value, everything else maps directly
+  // to a real status label. Total is deliberately the sum of these 8
+  // categories \u2014 matching how the manual weekly deck defines it \u2014 rather
+  // than a separate raw item count. ----
+  const imacBreakdown = useMemo(() => {
+    const counts = {
+      completed: 0, cancelled: 0, rejected: 0, awaitingPayment: 0,
+      subwayToReview: 0, awaitingFloorplan: 0, freedomPayIssues: 0, dateBooked: 0
+    };
+    (imacItems || []).forEach((item) => {
+      const group = (item.group || '').toLowerCase();
+      const status = (item.status || '').trim();
+      if (group.includes('cancelled')) { counts.cancelled += 1; return; }
+      if (status === 'Complete') counts.completed += 1;
+      else if (status === 'Rejected') counts.rejected += 1;
+      else if (status === 'FZE to Pay Invoice') counts.awaitingPayment += 1;
+      else if (status === 'SW to Review') counts.subwayToReview += 1;
+      else if (status === 'Floorplan Requested') counts.awaitingFloorplan += 1;
+      else if (status === 'Freedom Pay Issues to Resolve') counts.freedomPayIssues += 1;
+      else if (status === 'Booked') counts.dateBooked += 1;
+    });
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    return { ...counts, total };
+  }, [imacItems]);
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -755,6 +782,26 @@ export default function App() {
               </div>
               <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
                 Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity).
+              </p>
+            </div>
+
+            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
+              <div className="px-5 py-3 border-b border-border">
+                <h3 className="text-sm font-semibold">IMAC Status</h3>
+              </div>
+              <div className="p-5 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                <KPICard label="Total Requests" value={imacBreakdown.total} />
+                <KPICard label="Completed" value={imacBreakdown.completed} />
+                <KPICard label="Cancelled" value={imacBreakdown.cancelled} />
+                <KPICard label="Rejected" value={imacBreakdown.rejected} />
+                <KPICard label="Awaiting Payment" value={imacBreakdown.awaitingPayment} />
+                <KPICard label="Subway to Review" value={imacBreakdown.subwayToReview} />
+                <KPICard label="Awaiting Floorplan" value={imacBreakdown.awaitingFloorplan} />
+                <KPICard label="Freedom Pay Issues" value={imacBreakdown.freedomPayIssues} />
+                <KPICard label="Date Booked" value={imacBreakdown.dateBooked} />
+              </div>
+              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
+                From the separate IMAC Work board (Install/Move/Add/Change requests) — a different program to the rest of this dashboard.
               </p>
             </div>
 

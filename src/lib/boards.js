@@ -24,6 +24,16 @@ export const SIGNUP_BOARD = {
   }
 };
 
+// The IMAC Work board \u2014 a completely separate program (Install/Move/Add/
+// Change requests) from the 5 country boards and Sign Up board above.
+export const IMAC_BOARD = {
+  id: '9491284603',
+  columns: {
+    status: 'status',
+    country: 'dropdown_mkses01r'
+  }
+};
+
 // Group-name matching is inherently a little fuzzy since each board's group
 // titles vary slightly (e.g. "Completed installs" vs "Completed" vs
 // "Complete"). These regexes cover the variants seen across all 5 boards.
