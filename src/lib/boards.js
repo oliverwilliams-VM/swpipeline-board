@@ -20,17 +20,21 @@ export const SIGNUP_BOARD = {
     installPhase: 'status',
     country: 'country',
     linkToInstallBau: 'connect_boards__1',
-    layoutType: 'dup__of_layout_type_bau1__1'
+    layoutType: 'dup__of_layout_type_bau1__1',
+    projectType: 'label7',
+    requestedInstallDate: 'date__1'
   }
 };
 
-// The IMAC Work board \u2014 a completely separate program (Install/Move/Add/
-// Change requests) from the 5 country boards and Sign Up board above.
+// The IMAC Work board \u2014 a completely separate program from everything else
+// on this dashboard, used for the IMAC Status chart and the Slide 1
+// forecast tables' IMACs column.
 export const IMAC_BOARD = {
   id: '9491284603',
   columns: {
     status: 'status',
-    country: 'dropdown_mkses01r'
+    country: 'dropdown_mkses01r',
+    dateOfWorks: 'date4'
   }
 };
 

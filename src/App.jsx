@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -428,6 +428,84 @@ export default function App() {
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
     return { ...counts, total };
   }, [imacItems]);
+
+  // ---- BAU Forecast tables (This Month "Actual" / Next Month "Forecast"):
+  // Remodel/NRO and RetroFit come from the Sign Up board's Project Type
+  // field, bucketed by its Requested Install Date; IMACs comes from the
+  // separate IMAC board, bucketed by its own Date of Works field. "Misc"
+  // has no identified source yet, so it's always 0 \u2014 flagged in the
+  // footer rather than silently guessed at. ----
+  const bauForecastTables = useMemo(() => {
+    const now = new Date();
+    const normalizeCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (!t) return null;
+      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
+      if (t.includes('ireland')) return 'IE';
+      if (t.includes('netherlands') || t === 'nl') return 'NL';
+      if (t.includes('germany') || t === 'de') return 'DE';
+      if (t.includes('finland') || t === 'fi') return 'FI';
+      return null;
+    };
+    const normalizeImacCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (t === 'uk') return 'UK';
+      if (t === 'ire') return 'IE';
+      if (t === 'nl') return 'NL';
+      if (t === 'de') return 'DE';
+      return null;
+    };
+    const clusterOf = (country) => {
+      if (country === 'UK' || country === 'IE') return 'UKI';
+      if (country === 'DE') return 'DE';
+      if (country === 'NL') return 'NL';
+      if (country === 'FI') return 'FL';
+      return null;
+    };
+    const classifyProjectType = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (t === 'remodel' || t === 'tuscany' || t === 'tuscany ii' || t === 'nro') return 'remodelNro';
+      if (t === 'retro - metro' || t === 'retro - fresh forward') return 'retrofit';
+      return null;
+    };
+    const CLUSTERS = ['DE', 'UKI', 'FL', 'NL'];
+
+    function buildMonthTable(monthOffset) {
+      const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      const table = {};
+      CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0, imacs: 0, misc: 0 }; });
+
+      (signUpItems || []).forEach((item) => {
+        if (yearMonth(item.requestedInstallDate) !== ym) return;
+        const cluster = clusterOf(normalizeCountry(item.country));
+        const category = classifyProjectType(item.projectType);
+        if (!cluster || !category) return;
+        table[cluster][category] += 1;
+      });
+
+      (imacItems || []).forEach((item) => {
+        if (yearMonth(item.dateOfWorks) !== ym) return;
+        const cluster = clusterOf(normalizeImacCountry(item.country));
+        if (!cluster) return;
+        table[cluster].imacs += 1;
+      });
+
+      const totals = { remodelNro: 0, retrofit: 0, imacs: 0, misc: 0 };
+      CLUSTERS.forEach((c) => {
+        totals.remodelNro += table[c].remodelNro;
+        totals.retrofit += table[c].retrofit;
+        totals.imacs += table[c].imacs;
+        totals.misc += table[c].misc;
+      });
+
+      return { label, table, totals };
+    }
+
+    return { thisMonth: buildMonthTable(0), nextMonth: buildMonthTable(1) };
+  }, [signUpItems, imacItems]);
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -846,6 +924,63 @@ export default function App() {
                           <tr className="bg-[hsl(var(--surface-2))]">
                             <td className="px-4 py-2.5 text-xs font-semibold">Total Active Pipeline</td>
                             <td className="px-4 py-2.5 text-xs text-right font-semibold tabular-nums">{row.total}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              icon={ClipboardList}
+              accent="hsl(var(--chart-5))"
+              title="BAU Forecast — Remodel/NRO, RetroFit, IMACs"
+              footer="Remodel/NRO and RetroFit come from the Sign Up board's Project Type field; IMACs from the separate IMAC board. “Misc” has no identified source yet and always shows 0 — let me know what this should track."
+            >
+              <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+                {[
+                  { key: 'thisMonth', badge: 'Actual' },
+                  { key: 'nextMonth', badge: 'Forecast' }
+                ].map(({ key, badge }) => {
+                  const { label, table, totals } = bauForecastTables[key];
+                  const clusterRows = [
+                    ['DE', 'DE BAU'],
+                    ['UKI', 'UKI BAU'],
+                    ['FL', 'FL BAU'],
+                    ['NL', 'NL BAU']
+                  ];
+                  return (
+                    <div key={key} className="border border-border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-semibold">
+                              {label} <span className="font-normal text-muted-foreground">({badge})</span>
+                            </th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Remodel/NRO</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">RetroFit</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">IMACs</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Misc</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {clusterRows.map(([clusterKey, rowLabel]) => (
+                            <tr key={clusterKey}>
+                              <td className="px-4 py-2.5 text-xs text-muted-foreground">{rowLabel}</td>
+                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].remodelNro}</td>
+                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].retrofit}</td>
+                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].imacs}</td>
+                              <td className="px-3 py-2.5 text-xs text-center tabular-nums text-muted-foreground">{table[clusterKey].misc}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-[hsl(var(--surface-2))]">
+                            <td className="px-4 py-2.5 text-xs font-semibold">Total Pipeline</td>
+                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.remodelNro}</td>
+                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.retrofit}</td>
+                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.imacs}</td>
+                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.misc}</td>
                           </tr>
                         </tbody>
                       </table>

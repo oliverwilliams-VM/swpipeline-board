@@ -49,6 +49,8 @@ function shapeSignUpItem(rawItem) {
     installPhase: valuesById[SIGNUP_BOARD.columns.installPhase] ?? null,
     country: valuesById[SIGNUP_BOARD.columns.country] ?? null,
     layoutType: valuesById[SIGNUP_BOARD.columns.layoutType] ?? null,
+    projectType: valuesById[SIGNUP_BOARD.columns.projectType] ?? null,
+    requestedInstallDate: valuesById[SIGNUP_BOARD.columns.requestedInstallDate] ?? null,
     linkedInstallBauNames: parseLinkedNames(rawItem, SIGNUP_BOARD.columns.linkToInstallBau)
   };
 }
@@ -61,7 +63,8 @@ function shapeImacItem(rawItem) {
     name: rawItem.name,
     group: rawItem.group?.title ?? null,
     status: valuesById[IMAC_BOARD.columns.status] ?? null,
-    country: valuesById[IMAC_BOARD.columns.country] ?? null
+    country: valuesById[IMAC_BOARD.columns.country] ?? null,
+    dateOfWorks: valuesById[IMAC_BOARD.columns.dateOfWorks] ?? null
   };
 }
 
