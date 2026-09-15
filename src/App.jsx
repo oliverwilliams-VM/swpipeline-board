@@ -507,7 +507,6 @@ export default function App() {
       if (country === 'UK' || country === 'IE') return 'UKI';
       if (country === 'DE') return 'DE';
       if (country === 'NL') return 'NL';
-      if (country === 'FI') return 'FL';
       return null;
     };
     const classifyProjectType = (text) => {
@@ -517,7 +516,7 @@ export default function App() {
       if (t === 'check required' || t === 'tbd') return 'misc';
       return null;
     };
-    const CLUSTERS = ['DE', 'UKI', 'FL', 'NL'];
+    const CLUSTERS = ['DE', 'UKI', 'NL'];
 
     function buildMonthTable(monthOffset) {
       const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
@@ -1048,7 +1047,6 @@ export default function App() {
                   const clusterRows = [
                     ['DE', 'DE BAU'],
                     ['UKI', 'UKI BAU'],
-                    ['FL', 'FL BAU'],
                     ['NL', 'NL BAU']
                   ];
                   return (
