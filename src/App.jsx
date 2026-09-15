@@ -253,6 +253,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chartView, setChartView] = useState('monthly');
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
+  const [expandedBauCell, setExpandedBauCell] = useState(null); // { monthKey, cluster, category, label }
   const [activeTab, setActiveTab] = useState('forecast');
   const [signUpItems, setSignUpItems] = useState(null);
   const [, forceTick] = useState(0);
@@ -570,11 +571,63 @@ export default function App() {
         totals.misc += table[c].misc;
       });
 
-      return { label, table, totals };
+      return { ym, label, table, totals };
     }
 
     return { thisMonth: buildMonthTable(0), nextMonth: buildMonthTable(1) };
   }, [signUpItems]);
+
+  // ---- Site list for whichever BAU Forecast cell is currently expanded.
+  // cluster === null means the Total Pipeline row was clicked, showing
+  // every cluster's sites for that category combined. ----
+  const bauCellSites = useMemo(() => {
+    if (!expandedBauCell) return [];
+    const { monthKey, cluster, category } = expandedBauCell;
+    const monthData = bauForecastTables[monthKey];
+    if (!monthData) return [];
+
+    const normalizeCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (!t) return null;
+      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
+      if (t.includes('ireland')) return 'IE';
+      if (t.includes('netherlands') || t === 'nl') return 'NL';
+      if (t.includes('germany') || t === 'de') return 'DE';
+      if (t.includes('finland') || t === 'fi') return 'FI';
+      return null;
+    };
+    const clusterOf = (country) => {
+      if (country === 'UK' || country === 'IE') return 'UKI';
+      if (country === 'DE') return 'DE';
+      if (country === 'NL') return 'NL';
+      return null;
+    };
+    const classifyProjectType = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (t === 'remodel' || t === 'tuscany' || t === 'tuscany ii' || t === 'nro') return 'remodelNro';
+      if (t === 'retro - metro' || t === 'retro - fresh forward') return 'retrofit';
+      if (t === 'check required' || t === 'tbd') return 'misc';
+      return null;
+    };
+
+    return (signUpItems || [])
+      .filter((item) => yearMonth(item.hkShippingDate) === monthData.ym)
+      .filter((item) => classifyProjectType(item.projectType) === category)
+      .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
+      .filter((item) => {
+        const itemCluster = clusterOf(item.countryCode);
+        return cluster ? itemCluster === cluster : itemCluster !== null;
+      })
+      .sort((a, b) => (a.countryCode || '').localeCompare(b.countryCode || '') || a.name.localeCompare(b.name));
+  }, [expandedBauCell, bauForecastTables, signUpItems]);
+
+  function toggleBauCell(monthKey, cluster, category, label) {
+    setExpandedBauCell((prev) =>
+      prev && prev.monthKey === monthKey && prev.cluster === cluster && prev.category === category
+        ? null
+        : { monthKey, cluster, category, label }
+    );
+  }
 
   // ---- Priority Sites candidates: not a replacement for the manually
   // curated Priority Sites slides (those need a person's judgment and
@@ -1088,7 +1141,7 @@ export default function App() {
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit"
               open={activeTab === 'bau'}
-              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”), bucketed by H&K Shipping Date."
+              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”), bucketed by H&K Shipping Date. Click any number to see the sites behind it."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                 {[
@@ -1101,6 +1154,11 @@ export default function App() {
                     ['UKI', 'UKI BAU'],
                     ['NL', 'NL BAU']
                   ];
+                  const categoryLabels = { remodelNro: 'Remodel/NRO', retrofit: 'RetroFit', misc: 'Misc' };
+                  const cellClass = (cluster, category) => {
+                    const isActive = expandedBauCell?.monthKey === key && expandedBauCell?.cluster === cluster && expandedBauCell?.category === category;
+                    return `px-3 py-3 text-sm text-center tabular-nums cursor-pointer transition-colors hover:bg-[hsl(var(--surface-2))] ${isActive ? 'text-primary font-semibold' : ''}`;
+                  };
                   return (
                     <div key={key} className="border border-border rounded-md overflow-hidden">
                       <table className="w-full">
@@ -1118,16 +1176,28 @@ export default function App() {
                           {clusterRows.map(([clusterKey, rowLabel]) => (
                             <tr key={clusterKey}>
                               <td className="px-4 py-3 text-sm text-muted-foreground">{rowLabel}</td>
-                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].remodelNro}</td>
-                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].retrofit}</td>
-                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].misc}</td>
+                              {['remodelNro', 'retrofit', 'misc'].map((category) => (
+                                <td
+                                  key={category}
+                                  className={cellClass(clusterKey, category)}
+                                  onClick={() => toggleBauCell(key, clusterKey, category, `${rowLabel} \u2014 ${categoryLabels[category]}`)}
+                                >
+                                  {table[clusterKey][category]}
+                                </td>
+                              ))}
                             </tr>
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
                             <td className="px-4 py-3 text-sm font-semibold">Total Pipeline</td>
-                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.remodelNro}</td>
-                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.retrofit}</td>
-                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.misc}</td>
+                            {['remodelNro', 'retrofit', 'misc'].map((category) => (
+                              <td
+                                key={category}
+                                className={`${cellClass(null, category)} font-semibold`}
+                                onClick={() => toggleBauCell(key, null, category, `Total Pipeline \u2014 ${categoryLabels[category]}`)}
+                              >
+                                {totals[category]}
+                              </td>
+                            ))}
                           </tr>
                         </tbody>
                       </table>
@@ -1137,6 +1207,33 @@ export default function App() {
                           {(key === 'thisMonth' ? scheduledByMonth[1]?.total : scheduledByMonth[2]?.total) ?? 0}
                         </span>
                       </div>
+                      {expandedBauCell?.monthKey === key && (
+                        <div className="border-t border-primary p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold">
+                              {expandedBauCell.label} {'\u2014'} {label} ({bauCellSites.length} site{bauCellSites.length === 1 ? '' : 's'})
+                            </h4>
+                            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setExpandedBauCell(null)}>
+                              Close {'\u2715'}
+                            </button>
+                          </div>
+                          {bauCellSites.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No sites found.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {bauCellSites.map((s) => (
+                                <span
+                                  key={s.id}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
+                                >
+                                  <span>{FLAGS[s.countryCode] || '\u{1F310}'}</span>
+                                  <span className="font-medium">{s.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
