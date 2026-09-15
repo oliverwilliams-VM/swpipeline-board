@@ -24,7 +24,11 @@ export const SIGNUP_BOARD = {
     layoutType: 'dup__of_layout_type_bau1__1',
     storeOpeningType: 'dup__of_store_type5__1',
     installDate: 'mirror30__1',
-    expectRemodelMonth: 'color5'
+    expectRemodelMonth: 'color5',
+    prioritySite: 'color_mm77g3tq',
+    priorityPipelineNotes: 'text_mm77zj1t',
+    mfpOwner: 'people__1',
+    hkShippingDate: 'date_mkmkxahk'
   }
 };
 

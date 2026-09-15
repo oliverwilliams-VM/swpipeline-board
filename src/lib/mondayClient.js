@@ -57,6 +57,10 @@ function shapeSignUpItem(rawItem) {
     storeOpeningType: valuesById[SIGNUP_BOARD.columns.storeOpeningType] ?? null,
     installDate: valuesById[SIGNUP_BOARD.columns.installDate] ?? null,
     expectRemodelMonth: valuesById[SIGNUP_BOARD.columns.expectRemodelMonth] ?? null,
+    prioritySite: valuesById[SIGNUP_BOARD.columns.prioritySite] ?? null,
+    priorityPipelineNotes: valuesById[SIGNUP_BOARD.columns.priorityPipelineNotes] ?? null,
+    mfpOwner: valuesById[SIGNUP_BOARD.columns.mfpOwner] ?? null,
+    hkShippingDate: valuesById[SIGNUP_BOARD.columns.hkShippingDate] ?? null,
     linkedInstallBauNames: parseLinkedNames(rawItem, SIGNUP_BOARD.columns.linkToInstallBau)
   };
 }

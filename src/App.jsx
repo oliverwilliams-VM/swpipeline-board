@@ -637,20 +637,26 @@ export default function App() {
     );
   }
 
-  // ---- Priority Sites candidates: not a replacement for the manually
-  // curated Priority Sites slides (those need a person's judgment and
-  // commentary), but a starting shortlist of sites whose own Site Status
-  // already flags a problem \u2014 using the same field already fetched from
-  // all 5 country boards, so no new Monday lookup was needed. Excludes
-  // sites already live, since a stale status on a finished site isn't a
-  // real candidate. ----
-  const stuckSiteCandidates = useMemo(() => {
-    const STUCK_PATTERN = /risk|issue|hold|reschedul|outstanding|postponed/i;
-    return items
-      .filter((i) => !isLiveItem(i))
-      .filter((i) => STUCK_PATTERN.test(i.siteStatus || ''))
-      .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-  }, [items]);
+  // ---- Priority Sites: the real thing this time, not a heuristic \u2014
+  // pulled directly from the Sign Up board's own "Priority Sites" status
+  // column (label = "Priority"), alongside its Priority Pipeline Notes,
+  // MFP Owner and H&K Shipping Date. ----
+  const prioritySiteCandidates = useMemo(() => {
+    const normalizeCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (!t) return null;
+      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
+      if (t.includes('ireland')) return 'IE';
+      if (t.includes('netherlands') || t === 'nl') return 'NL';
+      if (t.includes('germany') || t === 'de') return 'DE';
+      if (t.includes('finland') || t === 'fi') return 'FI';
+      return null;
+    };
+    return (signUpItems || [])
+      .filter((item) => (item.prioritySite || '').trim().toLowerCase() === 'priority')
+      .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
+      .sort((a, b) => (a.countryCode || '').localeCompare(b.countryCode || '') || a.name.localeCompare(b.name));
+  }, [signUpItems]);
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -1235,9 +1241,9 @@ export default function App() {
             <SectionCard
               icon={AlertTriangle}
               accent="hsl(var(--destructive))"
-              title={`Priority Sites \u2014 Candidates (${stuckSiteCandidates.length})`}
+              title={`Priority Sites (${prioritySiteCandidates.length})`}
               open={activeTab === 'priority'}
-              footer="A starting shortlist, not the finished Priority Sites slide — these are sites whose own Site Status already flags a problem (risk, hold, reschedule, outstanding payment, etc.), pulled straight from each country board. Still needs a person's judgement on which are genuinely priority, plus the commentary and owner for each."
+              footer="Pulled directly from the Sign Up board's own “Priority Sites” field (label = “Priority”), alongside its Priority Pipeline Notes, MFP Owner and H&K Shipping Date."
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -1245,19 +1251,21 @@ export default function App() {
                     <tr>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Site</th>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Country</th>
-                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Site Status</th>
-                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Install Phase</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Owner</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">H&K Shipping Date</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Notes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {stuckSiteCandidates.length === 0 ? (
-                      <tr><td colSpan={4} className="px-5 py-4 text-sm text-muted-foreground">No sites currently flagged.</td></tr>
-                    ) : stuckSiteCandidates.map((site) => (
-                      <tr key={`${site.country}-${site.id}`} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                    {prioritySiteCandidates.length === 0 ? (
+                      <tr><td colSpan={5} className="px-5 py-4 text-sm text-muted-foreground">No sites currently flagged as Priority.</td></tr>
+                    ) : prioritySiteCandidates.map((site) => (
+                      <tr key={site.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
                         <td className="px-5 py-3 text-sm font-medium">{site.name}</td>
-                        <td className="px-5 py-3 text-sm text-muted-foreground">{FLAGS[site.country]} {site.country}</td>
-                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.siteStatus || '\u2014'}</td>
-                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.installPhase || '\u2014'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{FLAGS[site.countryCode] || '\u{1F310}'} {site.countryCode || site.country}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.mfpOwner || '\u2014'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.hkShippingDate || '\u2014'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.priorityPipelineNotes || '\u2014'}</td>
                       </tr>
                     ))}
                   </tbody>
