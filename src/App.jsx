@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
-import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck } from 'lucide-react';
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
 import { useCountUp } from './lib/useCountUp';
@@ -108,6 +108,27 @@ function PlaceholderCard({ label }) {
     <div className="border border-dashed border-border rounded-md p-4 bg-[hsl(var(--surface-1))]">
       <div className="text-xs text-muted-foreground mb-2 line-clamp-2">{label}</div>
       <div className="text-lg font-medium text-muted-foreground">Coming soon</div>
+    </div>
+  );
+}
+
+// Every major section below shares this shell: a colored top accent strip
+// and a small icon badge, so the page can be scanned by section at a
+// glance in a live presentation rather than reading a wall of identical
+// grey cards.
+function SectionCard({ icon: Icon, accent, title, footer, children }) {
+  return (
+    <div className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden" style={{ borderTop: `3px solid ${accent}` }}>
+      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accent}22` }}>
+          <Icon className="w-4 h-4" style={{ color: accent }} />
+        </div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      {children}
+      {footer && (
+        <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">{footer}</p>
+      )}
     </div>
   );
 }
@@ -562,7 +583,10 @@ export default function App() {
             <div className="h-8 w-px bg-border" />
             <img src="/Subway.png" alt="Subway" className="h-8 w-auto" />
             <div className="h-8 w-px bg-border" />
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">PipelineBoard</h1>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight">PipelineBoard</h1>
+              <p className="text-xs text-muted-foreground">Weekly pipeline forecast review</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             {!loading && (
@@ -651,7 +675,6 @@ export default function App() {
                   active={expandedCard?.ym === m.ym && expandedCard?.type === 'scheduled'}
                 />
               ))}
-              <PlaceholderCard label="First Time Right" />
             </div>
 
             {expandedCard && (
@@ -684,10 +707,61 @@ export default function App() {
               </div>
             )}
 
-            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-              <div className="px-5 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">Subway Pipeline Forecast</h3>
+            <SectionCard
+              icon={CalendarCheck}
+              accent="hsl(var(--chart-4))"
+              title="Scheduled vs Actual by Country"
+              footer="Each cell shows the hit rate (Actual ÷ Scheduled) with the raw numbers underneath."
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                    <tr>
+                      <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country</th>
+                      {scheduledByMonth.map((m) => (
+                        <th key={m.ym} className="px-5 py-2.5 text-center text-xs font-medium text-muted-foreground border-l border-border">
+                          {m.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {SCHEDULE_TABLE_COUNTRIES.map((c) => (
+                      <tr key={c} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                        <td className="px-5 py-3 text-xs font-medium">{FLAGS[c]} {c}</td>
+                        {scheduledByMonth.map((m) => {
+                          const sched = m.byCountry[c] || 0;
+                          const actual = m.byCountryActual[c] || 0;
+                          const pct = m.byCountryPct[c];
+                          const pctColor = pct === null
+                            ? 'hsl(var(--muted-foreground))'
+                            : pct >= 100
+                            ? 'hsl(var(--status-complete))'
+                            : pct >= 50
+                            ? 'hsl(var(--status-scheduled))'
+                            : 'hsl(var(--destructive))';
+                          return (
+                            <td key={m.ym} className="px-5 py-2.5 text-center border-l border-border">
+                              <div className="text-sm font-semibold tabular-nums" style={{ color: pctColor }}>
+                                {pct === null ? '\u2014' : `${pct}%`}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground tabular-nums">{actual} / {sched}</div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </SectionCard>
+
+            <SectionCard
+              icon={Package}
+              accent="hsl(var(--chart-1))"
+              title="Subway Pipeline Forecast"
+              footer="Interrupt / Disrupt / Small Format counts come from the Sign Up → Ready to Go board's Layout Type field — a different source to the Total Sites Live row above, which uses the 5 country boards."
+            >
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
@@ -733,15 +807,14 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
-              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
-                Interrupt / Disrupt / Small Format counts come from the Sign Up → Ready to Go board's Layout Type field — a different source to the Total Sites Live row above, which uses the 5 country boards.
-              </p>
-            </div>
+            </SectionCard>
 
-            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-              <div className="px-5 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">Active Pipeline Breakdown</h3>
-              </div>
+            <SectionCard
+              icon={Workflow}
+              accent="hsl(var(--chart-2))"
+              title="Active Pipeline Breakdown"
+              footer="Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity)."
+            >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {[
                   { key: 'UKI', label: 'UKI Pipeline' },
@@ -780,80 +853,49 @@ export default function App() {
                   );
                 })}
               </div>
-              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
-                Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity).
-              </p>
-            </div>
+            </SectionCard>
 
-            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-              <div className="px-5 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">IMAC Status</h3>
-              </div>
-              <div className="p-5 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                <KPICard label="Total Requests" value={imacBreakdown.total} />
-                <KPICard label="Completed" value={imacBreakdown.completed} />
-                <KPICard label="Cancelled" value={imacBreakdown.cancelled} />
-                <KPICard label="Rejected" value={imacBreakdown.rejected} />
-                <KPICard label="Awaiting Payment" value={imacBreakdown.awaitingPayment} />
-                <KPICard label="Subway to Review" value={imacBreakdown.subwayToReview} />
-                <KPICard label="Awaiting Floorplan" value={imacBreakdown.awaitingFloorplan} />
-                <KPICard label="Freedom Pay Issues" value={imacBreakdown.freedomPayIssues} />
-                <KPICard label="Date Booked" value={imacBreakdown.dateBooked} />
-              </div>
-              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
-                From the separate IMAC Work board (Install/Move/Add/Change requests) — a different program to the rest of this dashboard.
-              </p>
-            </div>
-
-            <div className="border border-border rounded-md bg-[hsl(var(--surface-1))]">
-              <div className="px-5 py-3 border-b border-border">
-                <h3 className="text-sm font-semibold">Scheduled vs Actual by Country</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
-                    <tr>
-                      <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country</th>
-                      {scheduledByMonth.map((m) => (
-                        <th key={m.ym} className="px-5 py-2.5 text-center text-xs font-medium text-muted-foreground border-l border-border">
-                          {m.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {SCHEDULE_TABLE_COUNTRIES.map((c) => (
-                      <tr key={c} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                        <td className="px-5 py-3 text-xs font-medium">{FLAGS[c]} {c}</td>
-                        {scheduledByMonth.map((m) => {
-                          const sched = m.byCountry[c] || 0;
-                          const actual = m.byCountryActual[c] || 0;
-                          const pct = m.byCountryPct[c];
-                          const pctColor = pct === null
-                            ? 'hsl(var(--muted-foreground))'
-                            : pct >= 100
-                            ? 'hsl(var(--status-complete))'
-                            : pct >= 50
-                            ? 'hsl(var(--status-scheduled))'
-                            : 'hsl(var(--destructive))';
-                          return (
-                            <td key={m.ym} className="px-5 py-2.5 text-center border-l border-border">
-                              <div className="text-sm font-semibold tabular-nums" style={{ color: pctColor }}>
-                                {pct === null ? '\u2014' : `${pct}%`}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground tabular-nums">{actual} / {sched}</div>
-                            </td>
-                          );
+            <SectionCard
+              icon={Wrench}
+              accent="hsl(var(--chart-3))"
+              title="IMAC Status"
+              footer="From the separate IMAC Work board (Install/Move/Add/Change requests) — a different program to the rest of this dashboard."
+            >
+              <div className="p-5">
+                <ChartContainer config={{}} className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        { label: 'Total', value: imacBreakdown.total, color: 'hsl(var(--chart-1))' },
+                        { label: 'Completed', value: imacBreakdown.completed, color: 'hsl(var(--status-complete))' },
+                        { label: 'Cancelled', value: imacBreakdown.cancelled, color: 'hsl(var(--destructive))' },
+                        { label: 'Rejected', value: imacBreakdown.rejected, color: 'hsl(var(--destructive))' },
+                        { label: 'Awaiting Payment', value: imacBreakdown.awaitingPayment, color: 'hsl(var(--status-scheduled))' },
+                        { label: 'Subway to Review', value: imacBreakdown.subwayToReview, color: 'hsl(var(--status-scheduled))' },
+                        { label: 'Awaiting Floorplan', value: imacBreakdown.awaitingFloorplan, color: 'hsl(var(--status-scheduled))' },
+                        { label: 'FP Issues', value: imacBreakdown.freedomPayIssues, color: 'hsl(var(--status-scheduled))' },
+                        { label: 'Date Booked', value: imacBreakdown.dateBooked, color: 'hsl(var(--status-scheduled))' }
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border-subtle))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))' }} fontSize={11} angle={-30} textAnchor="end" height={80} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fill: 'hsl(var(--muted-foreground))' }} fontSize={12} allowDecimals={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {[
+                          imacBreakdown.total, imacBreakdown.completed, imacBreakdown.cancelled, imacBreakdown.rejected,
+                          imacBreakdown.awaitingPayment, imacBreakdown.subwayToReview, imacBreakdown.awaitingFloorplan,
+                          imacBreakdown.freedomPayIssues, imacBreakdown.dateBooked
+                        ].map((_, index) => {
+                          const colors = ['hsl(var(--chart-1))', 'hsl(var(--status-complete))', 'hsl(var(--destructive))', 'hsl(var(--destructive))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))', 'hsl(var(--status-scheduled))'];
+                          return <Cell key={index} fill={colors[index]} />;
                         })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
               </div>
-              <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">
-                Each cell shows the hit rate (Actual {'\u00f7'} Scheduled) with the raw numbers underneath.
-              </p>
-            </div>
+            </SectionCard>
           </div>
         )}
       </main>
