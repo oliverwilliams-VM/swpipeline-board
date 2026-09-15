@@ -25,8 +25,8 @@ const FORECAST_COLUMN_ORDER = ['UK', 'IE', 'FI', 'NL', 'DE'];
 // The 5 detail sections below the KPI cards \u2014 one is shown at a time,
 // picked via the icon-radio tab bar. Icon/accent match each SectionCard.
 const SECTION_TABS = [
-  { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
   { key: 'forecast', label: 'Estate Overview', icon: Package, accent: 'hsl(var(--chart-1))' },
+  { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
   { key: 'active', label: 'Active Pipeline', icon: Workflow, accent: 'hsl(var(--chart-2))' },
   { key: 'bau', label: 'BAU Forecast', icon: ClipboardList, accent: 'hsl(var(--chart-5))' },
   { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' }
@@ -253,7 +253,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chartView, setChartView] = useState('monthly');
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
-  const [activeTab, setActiveTab] = useState('scheduled');
+  const [activeTab, setActiveTab] = useState('forecast');
   const [signUpItems, setSignUpItems] = useState(null);
   const [imacItems, setImacItems] = useState(null);
   const [, forceTick] = useState(0);
@@ -370,14 +370,15 @@ export default function App() {
     };
     const classifyLayout = (text) => {
       const t = (text || '').trim().toLowerCase();
-      // Real board labels are e.g. "Interrupt 27\" Kiosk" and "Disrupt 27\"
-      // Kiosk" \u2014 startsWith catches these regardless of the kiosk-size
-      // suffix, while deliberately NOT matching "Subway Disrupt 2.0" (that
-      // starts with "subway", so it stays its own separate thing rather
-      // than getting folded into plain "Disrupt").
-      if (t.startsWith('interrupt')) return 'interrupt';
-      if (t.startsWith('disrupt')) return 'disrupt';
-      if (t.includes('small')) return 'smallFormat'; // covers "Small Form Factor" / "Small Format" / "Small Factor"
+      // Disrupt and Interrupt: match anywhere in the text, regardless of
+      // whatever else is in the label (so "Subway Disrupt 2.0" counts as
+      // Disrupt too, not just plain "Disrupt ... Kiosk"). "D2.0 BAU" is
+      // also folded into Disrupt even though it doesn't contain the word
+      // itself. Small Form Factor: requires an exact match on the real
+      // board wording \u2014 no substring/partial matching, unlike the other two.
+      if (t.includes('interrupt')) return 'interrupt';
+      if (t.includes('disrupt') || t === 'd2.0 bau' || t === 'd.20 bau') return 'disrupt';
+      if (t === 'small form factor') return 'smallFormat';
       return null;
     };
 
