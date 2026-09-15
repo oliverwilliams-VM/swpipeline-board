@@ -391,6 +391,19 @@ export default function App() {
     const liveItemsByNormName = new Map(
       items.filter(isLiveItem).map((i) => [normalizeName(i.name), i])
     );
+    // Reverse lookup: index live country items by whatever Sign Up names
+    // THEY link back to. Monday's link columns are sometimes only
+    // reliably populated on one side of a relationship \u2014 a Sign Up
+    // record's own link field can be empty even though the country
+    // board's own link back to it works fine. Checking both directions
+    // catches sites that the forward-only check alone would miss.
+    const liveItemByOwnSignUpLinkName = new Map();
+    items.filter(isLiveItem).forEach((i) => {
+      i.linkedSignUpNames.forEach((n) => {
+        liveItemByOwnSignUpLinkName.set(normalizeName(n), i);
+      });
+    });
+
     // A given live site can occasionally be reachable via more than one
     // Sign Up record (we've seen genuine "(copy)" duplicates on that
     // board) \u2014 tracking counted site IDs per category means a duplicate
@@ -404,9 +417,12 @@ export default function App() {
       const category = classifyLayout(item.layoutType);
       if (!country || !category) return;
 
-      const liveSite = item.linkedInstallBauNames
+      let liveSite = item.linkedInstallBauNames
         .map((n) => liveItemsByNormName.get(normalizeName(n)))
         .find(Boolean);
+      if (!liveSite) {
+        liveSite = liveItemByOwnSignUpLinkName.get(normalizeName(item.name));
+      }
       if (!liveSite) return;
       if (countedSiteIds[category].has(liveSite.id)) return;
 
