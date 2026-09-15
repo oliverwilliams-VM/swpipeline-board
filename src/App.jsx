@@ -1187,9 +1187,9 @@ export default function App() {
                         </tbody>
                       </table>
                       <div className="px-4 py-3 border-t border-border text-sm">
-                        <span className="text-muted-foreground">Booked installs (all types, across all 5 boards): </span>
+                        <span className="text-muted-foreground">Forecast: </span>
                         <span className="font-semibold tabular-nums">
-                          {(key === 'thisMonth' ? scheduledByMonth[1]?.total : scheduledByMonth[2]?.total) ?? 0}
+                          {totals.remodelNro + totals.retrofit}
                         </span>
                       </div>
                       {expandedBauCell?.monthKey === key && (
