@@ -459,28 +459,6 @@ export default function App() {
     };
   }, [signUpItems, items]);
 
-  // ---- Diagnostic: every live site that didn't land in Interrupt,
-  // Disrupt or Small Format above \u2014 either because its own Layout Type is
-  // something else entirely (e.g. "Awaiting Floor Plan"), or because no
-  // linked Sign Up record could be found for it at all. ----
-  const uncategorizedLiveSites = useMemo(() => {
-    const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const signUpByNormName = new Map((signUpItems || []).map((s) => [normalizeName(s.name), s]));
-    return items
-      .filter(isLiveItem)
-      .filter((i) => !pipelineForecast.allCountedSiteIds.has(i.id))
-      .map((i) => {
-        const linkedSignUp = i.linkedSignUpNames.map((n) => signUpByNormName.get(normalizeName(n))).find(Boolean);
-        return {
-          id: i.id,
-          name: i.name,
-          country: i.country,
-          layoutType: linkedSignUp ? (linkedSignUp.layoutType || '(blank)') : null
-        };
-      })
-      .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-  }, [items, signUpItems, pipelineForecast]);
-
   // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
   // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
   // further pipeline activity so it's excluded here, same as the Scheduled
@@ -658,38 +636,6 @@ export default function App() {
         : { monthKey, cluster, category, label }
     );
   }
-
-  // ---- Diagnostic: sites correctly classified as Remodel/NRO or RetroFit
-  // that never land in any month at all, because their relevant date
-  // field (Expect Remodel Month for Remodel/NRO, Install Date for RetroFit)
-  // is blank on Monday. A low BAU Forecast total is often explained by
-  // this rather than by the classification itself being wrong. ----
-  const bauMissingDateSites = useMemo(() => {
-    const normalizeCountry = (text) => {
-      const t = (text || '').trim().toLowerCase();
-      if (!t) return null;
-      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
-      if (t.includes('ireland')) return 'IE';
-      if (t.includes('netherlands') || t === 'nl') return 'NL';
-      if (t.includes('germany') || t === 'de') return 'DE';
-      if (t.includes('finland') || t === 'fi') return 'FI';
-      return null;
-    };
-    const classifyStoreOpeningType = (text) => {
-      const t = (text || '').trim().toLowerCase();
-      if (t.includes('re-model') || t.includes('new restaurant opening')) return 'remodelNro';
-      if (t.includes('retrofit')) return 'retrofit';
-      return null;
-    };
-    return (signUpItems || [])
-      .map((item) => ({ ...item, category: classifyStoreOpeningType(item.storeOpeningType), countryCode: normalizeCountry(item.country) }))
-      .filter((item) => item.category && item.countryCode)
-      .filter((item) => {
-        const itemYm = item.category === 'retrofit' ? yearMonth(item.installDate) : parseExpectRemodelMonth(item.expectRemodelMonth);
-        return itemYm === null;
-      })
-      .sort((a, b) => a.countryCode.localeCompare(b.countryCode) || a.name.localeCompare(b.name));
-  }, [signUpItems]);
 
   // ---- Priority Sites candidates: not a replacement for the manually
   // curated Priority Sites slides (those need a person's judgment and
@@ -1126,28 +1072,6 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
-              {uncategorizedLiveSites.length > 0 && (
-                <div className="border-t border-border px-5 py-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    {uncategorizedLiveSites.length} live site{uncategorizedLiveSites.length === 1 ? '' : 's'} not counted in any category above:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {uncategorizedLiveSites.map((s) => (
-                      <span
-                        key={s.id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
-                        title={s.layoutType === null ? 'No linked Sign Up record found' : `Layout Type: ${s.layoutType}`}
-                      >
-                        <span>{FLAGS[s.country]}</span>
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-muted-foreground">
-                          {s.layoutType === null ? '\u2014 no Sign Up link' : `\u2014 ${s.layoutType}`}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </SectionCard>
 
             <SectionCard
@@ -1299,28 +1223,6 @@ export default function App() {
                   );
                 })}
               </div>
-              {bauMissingDateSites.length > 0 && (
-                <div className="border-t border-border px-5 py-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                    {bauMissingDateSites.length} site{bauMissingDateSites.length === 1 ? '' : 's'} classified as Remodel/NRO or RetroFit, but missing the date field needed to place them in a month:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {bauMissingDateSites.map((s) => (
-                      <span
-                        key={s.id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
-                        title={s.category === 'retrofit' ? 'Missing Install Date' : 'Missing or unparseable Expect Remodel Month'}
-                      >
-                        <span>{FLAGS[s.countryCode] || '\u{1F310}'}</span>
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-muted-foreground">
-                          {'\u2014'} {s.category === 'retrofit' ? 'RetroFit' : 'Remodel/NRO'}, no {s.category === 'retrofit' ? 'Install Date' : 'Expect Remodel Month'}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </SectionCard>
 
             <SectionCard
