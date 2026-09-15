@@ -675,7 +675,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-4 sm:px-6 py-3 sm:py-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between max-w-[1440px] mx-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <img src="/Vita Mojo_Primary_Dark.png" alt="Vita Mojo" className="h-8 w-auto" />
             <div className="h-8 w-px bg-border" />
@@ -723,7 +723,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 py-4 sm:py-6 max-w-[1440px] mx-auto space-y-6">
+      <main className="px-4 sm:px-6 py-4 sm:py-6 space-y-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24">
             <div className="flex items-center gap-2">

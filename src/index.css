@@ -33,8 +33,17 @@ body { font-family: var(--font-body); font-size: 13px; background-color: hsl(var
   /* Buttons, refresh controls etc. serve no purpose on a printed page. */
   .no-print { display: none !important; }
 
-  /* Dark backgrounds and colored accents are lost by default when
-     printing/exporting to PDF unless explicitly told to keep them. */
+  /* Switch the whole dark theme to a white background with dark text for
+     print \u2014 a full-page dark background burns through a lot of ink/toner
+     for no benefit on paper. The colored accents (status colors, section
+     top-borders) are kept as-is since those still carry real meaning. */
+  :root {
+    --background: 0 0% 100%; --foreground: 220 20% 15%;
+    --surface-1: 0 0% 100%; --surface-2: 220 20% 96%;
+    --border: 220 15% 85%; --border-subtle: 220 15% 88%;
+    --muted-foreground: 220 10% 40%;
+  }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
