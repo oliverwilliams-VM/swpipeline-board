@@ -5,7 +5,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell }
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
 import { useCountUp } from './lib/useCountUp';
-import { fetchCountryItems, fetchSignUpItems, fetchImacItems } from './lib/mondayClient';
+import { fetchCountryItems, fetchSignUpItems } from './lib/mondayClient';
 import { COUNTRY_BOARDS, isLiveItem } from './lib/boards';
 
 // A punchier, more saturated palette specifically for the market-share pie
@@ -255,7 +255,6 @@ export default function App() {
   const [expandedCard, setExpandedCard] = useState(null); // { ym, type: 'live' | 'scheduled', label }
   const [activeTab, setActiveTab] = useState('forecast');
   const [signUpItems, setSignUpItems] = useState(null);
-  const [imacItems, setImacItems] = useState(null);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -292,10 +291,9 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [countryData, signUpData, imacData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchImacItems()]);
+      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
       setItems(countryData);
       setSignUpItems(signUpData);
-      setImacItems(imacData);
       setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
@@ -308,10 +306,9 @@ export default function App() {
   async function refresh() {
     setRefetching(true);
     try {
-      const [countryData, signUpData, imacData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchImacItems()]);
+      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
       setItems(countryData);
       setSignUpItems(signUpData);
-      setImacItems(imacData);
       setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
@@ -499,6 +496,11 @@ export default function App() {
     const counts = { UKI: blank(), DE: blank(), NL: blank() };
 
     (signUpItems || []).forEach((item) => {
+      // Sites parked in "Blocked/Frozen & Unblockable Sites" are excluded
+      // entirely from this breakdown, regardless of their own stage.
+      const group = (item.group || '').toLowerCase();
+      if (group.includes('blocked') && group.includes('unblockable')) return;
+
       const cluster = clusterOf(normalizeCountry(item.country));
       const stage = classifyStage(item.installPhase);
       if (!cluster || !stage) return;
@@ -513,39 +515,11 @@ export default function App() {
     };
   }, [signUpItems]);
 
-  // ---- IMAC Status: a completely separate program (Install/Move/Add/
-  // Change requests) tracked on its own board. "Cancelled" is a Group on
-  // that board rather than a status value, everything else maps directly
-  // to a real status label. Total is deliberately the sum of these 8
-  // categories \u2014 matching how the manual weekly deck defines it \u2014 rather
-  // than a separate raw item count. ----
-  const imacBreakdown = useMemo(() => {
-    const counts = {
-      completed: 0, cancelled: 0, rejected: 0, awaitingPayment: 0,
-      subwayToReview: 0, awaitingFloorplan: 0, freedomPayIssues: 0, dateBooked: 0
-    };
-    (imacItems || []).forEach((item) => {
-      const group = (item.group || '').toLowerCase();
-      const status = (item.status || '').trim();
-      if (group.includes('cancelled')) { counts.cancelled += 1; return; }
-      if (status === 'Complete') counts.completed += 1;
-      else if (status === 'Rejected') counts.rejected += 1;
-      else if (status === 'FZE to Pay Invoice') counts.awaitingPayment += 1;
-      else if (status === 'SW to Review') counts.subwayToReview += 1;
-      else if (status === 'Floorplan Requested') counts.awaitingFloorplan += 1;
-      else if (status === 'Freedom Pay Issues to Resolve') counts.freedomPayIssues += 1;
-      else if (status === 'Booked') counts.dateBooked += 1;
-    });
-    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-    return { ...counts, total };
-  }, [imacItems]);
-
   // ---- BAU Forecast tables (This Month "Actual" / Next Month "Forecast"):
-  // Remodel/NRO and RetroFit come from the Sign Up board's Project Type
-  // field, bucketed by its Requested Install Date; IMACs comes from the
-  // separate IMAC board, bucketed by its own Date of Works field. "Misc"
-  // has no identified source yet, so it's always 0 \u2014 flagged in the
-  // footer rather than silently guessed at. ----
+  // Remodel/NRO, RetroFit and Misc all come from the Sign Up board's
+  // Project Type field, bucketed by its H&K Shipping Date. IMACs was
+  // dropped from this table entirely (was previously sourced from a
+  // separate board, no longer tracked here). ----
   const bauForecastTables = useMemo(() => {
     const now = new Date();
     const normalizeCountry = (text) => {
@@ -556,14 +530,6 @@ export default function App() {
       if (t.includes('netherlands') || t === 'nl') return 'NL';
       if (t.includes('germany') || t === 'de') return 'DE';
       if (t.includes('finland') || t === 'fi') return 'FI';
-      return null;
-    };
-    const normalizeImacCountry = (text) => {
-      const t = (text || '').trim().toLowerCase();
-      if (t === 'uk') return 'UK';
-      if (t === 'ire') return 'IE';
-      if (t === 'nl') return 'NL';
-      if (t === 'de') return 'DE';
       return null;
     };
     const clusterOf = (country) => {
@@ -587,28 +553,20 @@ export default function App() {
       const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
       const table = {};
-      CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0, imacs: 0, misc: 0 }; });
+      CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0, misc: 0 }; });
 
       (signUpItems || []).forEach((item) => {
-        if (yearMonth(item.requestedInstallDate) !== ym) return;
+        if (yearMonth(item.hkShippingDate) !== ym) return;
         const cluster = clusterOf(normalizeCountry(item.country));
         const category = classifyProjectType(item.projectType);
         if (!cluster || !category) return;
         table[cluster][category] += 1;
       });
 
-      (imacItems || []).forEach((item) => {
-        if (yearMonth(item.dateOfWorks) !== ym) return;
-        const cluster = clusterOf(normalizeImacCountry(item.country));
-        if (!cluster) return;
-        table[cluster].imacs += 1;
-      });
-
-      const totals = { remodelNro: 0, retrofit: 0, imacs: 0, misc: 0 };
+      const totals = { remodelNro: 0, retrofit: 0, misc: 0 };
       CLUSTERS.forEach((c) => {
         totals.remodelNro += table[c].remodelNro;
         totals.retrofit += table[c].retrofit;
-        totals.imacs += table[c].imacs;
         totals.misc += table[c].misc;
       });
 
@@ -616,7 +574,7 @@ export default function App() {
     }
 
     return { thisMonth: buildMonthTable(0), nextMonth: buildMonthTable(1) };
-  }, [signUpItems, imacItems]);
+  }, [signUpItems]);
 
   // ---- Priority Sites candidates: not a replacement for the manually
   // curated Priority Sites slides (those need a person's judgment and
@@ -944,9 +902,9 @@ export default function App() {
                 <table className="w-full">
                   <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
                     <tr>
-                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Country</th>
+                      <th className="px-5 py-3 text-left text-base font-medium text-muted-foreground">Country</th>
                       {scheduledByMonth.map((m) => (
-                        <th key={m.ym} className="px-5 py-3 text-center text-sm font-medium text-muted-foreground border-l border-border">
+                        <th key={m.ym} className="px-5 py-3 text-center text-base font-medium text-muted-foreground border-l border-border">
                           {m.label}
                         </th>
                       ))}
@@ -955,7 +913,7 @@ export default function App() {
                   <tbody className="divide-y divide-border">
                     {SCHEDULE_TABLE_COUNTRIES.map((c) => (
                       <tr key={c} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                        <td className="px-5 py-3 text-sm font-medium">{FLAGS[c]} {c}</td>
+                        <td className="px-5 py-4 text-base font-semibold">{FLAGS[c]} {c}</td>
                         {scheduledByMonth.map((m) => {
                           const sched = m.byCountry[c] || 0;
                           const actual = m.byCountryActual[c] || 0;
@@ -968,17 +926,21 @@ export default function App() {
                             ? 'hsl(var(--status-scheduled))'
                             : 'hsl(var(--destructive))';
                           return (
-                            <td key={m.ym} className="px-5 py-3 text-center border-l border-border">
-                              <div className="text-sm font-semibold tabular-nums" style={{ color: pctColor }}>
+                            <td
+                              key={m.ym}
+                              className="px-5 py-4 text-center border-l border-border"
+                              style={{ backgroundColor: pct === null ? 'transparent' : `${pctColor}18` }}
+                            >
+                              <div className="text-xl font-bold tabular-nums" style={{ color: pctColor }}>
                                 {pct === null ? '\u2014' : `${pct}%`}
                               </div>
-                              <div className="flex items-center justify-center gap-2.5 text-xs text-muted-foreground tabular-nums">
+                              <div className="flex items-center justify-center gap-2.5 text-sm text-muted-foreground tabular-nums mt-1">
                                 <span className="inline-flex items-center gap-1" title="Live">
-                                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: 'hsl(var(--status-complete))' }} />
+                                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--status-complete))' }} />
                                   {actual}
                                 </span>
                                 <span className="inline-flex items-center gap-1" title="Scheduled">
-                                  <CalendarClock className="w-3 h-3 flex-shrink-0" style={{ color: 'hsl(var(--status-scheduled))' }} />
+                                  <CalendarClock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--status-scheduled))' }} />
                                   {sched}
                                 </span>
                               </div>
@@ -1078,7 +1040,7 @@ export default function App() {
               accent="hsl(var(--chart-2))"
               title="Active Pipeline Breakdown"
               open={activeTab === 'active'}
-              footer="Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity)."
+              footer="Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity), as are any sites sitting in “Blocked/Frozen & Unblockable Sites.”"
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {[
@@ -1089,7 +1051,7 @@ export default function App() {
                   const row = activePipelineBreakdown[key];
                   const stageRows = [
                     ['Hardware Placement Approval', row.hwPlacement],
-                    ['Imp Readiness', row.impReadiness],
+                    ['Contract/Invoice Sent', row.impReadiness],
                     ['Contract Signed', row.contractSigned],
                     ['Implementing without Install Date', row.implementing],
                     ['Installing', row.installing]
@@ -1124,9 +1086,9 @@ export default function App() {
             <SectionCard
               icon={ClipboardList}
               accent="hsl(var(--chart-5))"
-              title="BAU Forecast — Remodel/NRO, RetroFit, IMACs"
+              title="BAU Forecast — Remodel/NRO, RetroFit"
               open={activeTab === 'bau'}
-              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”); IMACs from the separate IMAC board."
+              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”), bucketed by H&K Shipping Date."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                 {[
@@ -1149,7 +1111,6 @@ export default function App() {
                             </th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Remodel/NRO</th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">RetroFit</th>
-                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">IMACs</th>
                             <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Misc</th>
                           </tr>
                         </thead>
@@ -1159,7 +1120,6 @@ export default function App() {
                               <td className="px-4 py-3 text-sm text-muted-foreground">{rowLabel}</td>
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].remodelNro}</td>
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].retrofit}</td>
-                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].imacs}</td>
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].misc}</td>
                             </tr>
                           ))}
@@ -1167,7 +1127,6 @@ export default function App() {
                             <td className="px-4 py-3 text-sm font-semibold">Total Pipeline</td>
                             <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.remodelNro}</td>
                             <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.retrofit}</td>
-                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.imacs}</td>
                             <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.misc}</td>
                           </tr>
                         </tbody>

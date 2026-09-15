@@ -1,4 +1,4 @@
-import { COUNTRY_BOARDS, SIGNUP_BOARD, IMAC_BOARD } from './boards';
+import { COUNTRY_BOARDS, SIGNUP_BOARD } from './boards';
 
 async function callApi(action, payload = {}) {
   const res = await fetch('/api/monday', {
@@ -46,25 +46,13 @@ function shapeSignUpItem(rawItem) {
   return {
     id: rawItem.id,
     name: rawItem.name,
+    group: rawItem.group?.title ?? null,
     installPhase: valuesById[SIGNUP_BOARD.columns.installPhase] ?? null,
     country: valuesById[SIGNUP_BOARD.columns.country] ?? null,
     layoutType: valuesById[SIGNUP_BOARD.columns.layoutType] ?? null,
     projectType: valuesById[SIGNUP_BOARD.columns.projectType] ?? null,
-    requestedInstallDate: valuesById[SIGNUP_BOARD.columns.requestedInstallDate] ?? null,
+    hkShippingDate: valuesById[SIGNUP_BOARD.columns.hkShippingDate] ?? null,
     linkedInstallBauNames: parseLinkedNames(rawItem, SIGNUP_BOARD.columns.linkToInstallBau)
-  };
-}
-
-function shapeImacItem(rawItem) {
-  const valuesById = {};
-  rawItem.column_values.forEach((cv) => { valuesById[cv.id] = cv.text; });
-  return {
-    id: rawItem.id,
-    name: rawItem.name,
-    group: rawItem.group?.title ?? null,
-    status: valuesById[IMAC_BOARD.columns.status] ?? null,
-    country: valuesById[IMAC_BOARD.columns.country] ?? null,
-    dateOfWorks: valuesById[IMAC_BOARD.columns.dateOfWorks] ?? null
   };
 }
 
@@ -92,11 +80,3 @@ export async function fetchSignUpItems() {
   return results[0].items.map(shapeSignUpItem);
 }
 
-// The IMAC Work board \u2014 a separate program from everything else on this
-// dashboard, used for the IMAC Status chart.
-export async function fetchImacItems() {
-  const { results } = await callApi('multiItems', {
-    boards: [{ id: IMAC_BOARD.id, columnIds: Object.values(IMAC_BOARD.columns) }]
-  });
-  return results[0].items.map(shapeImacItem);
-}

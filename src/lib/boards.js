@@ -13,7 +13,8 @@ export const COUNTRY_BOARDS = [
 
 // The Sign Up \u2192 Ready to Go board. Used for the reconciliation check, and
 // now also for the Subway Pipeline Forecast table (Layout Type breakdown
-// by country) \u2014 both live on this same board.
+// by country) and the BAU Forecast table (Project Type + H&K Shipping
+// Date) \u2014 all live on this same board.
 export const SIGNUP_BOARD = {
   id: '5678025992',
   columns: {
@@ -22,19 +23,7 @@ export const SIGNUP_BOARD = {
     linkToInstallBau: 'connect_boards__1',
     layoutType: 'dup__of_layout_type_bau1__1',
     projectType: 'label7',
-    requestedInstallDate: 'date__1'
-  }
-};
-
-// The IMAC Work board \u2014 a completely separate program from everything else
-// on this dashboard, used for the IMAC Status chart and the Slide 1
-// forecast tables' IMACs column.
-export const IMAC_BOARD = {
-  id: '9491284603',
-  columns: {
-    status: 'status',
-    country: 'dropdown_mkses01r',
-    dateOfWorks: 'date4'
+    hkShippingDate: 'date_mkmkxahk'
   }
 };
 
