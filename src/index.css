@@ -21,3 +21,25 @@
   --status-scheduled: 30 55% 60%; --status-complete: 140 45% 55%; --status-pending: 225 6% 64%;
 }
 body { font-family: var(--font-body); font-size: 13px; background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
+
+@media print {
+  /* Force every collapsible section open in the PDF, regardless of
+     whatever state it's in on screen \u2014 a printed report should always
+     show everything, even if the live view is deliberately collapsed
+     down for a cleaner presentation. */
+  .section-body { display: block !important; }
+  .section-chevron { display: none !important; }
+
+  /* Buttons, refresh controls etc. serve no purpose on a printed page. */
+  .no-print { display: none !important; }
+
+  /* Dark backgrounds and colored accents are lost by default when
+     printing/exporting to PDF unless explicitly told to keep them. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .section-card { break-inside: avoid; }
+}
+

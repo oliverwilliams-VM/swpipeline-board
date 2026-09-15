@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, Wrench, CalendarCheck, ClipboardList, ChevronDown, Download } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -116,19 +116,27 @@ function PlaceholderCard({ label }) {
 // and a small icon badge, so the page can be scanned by section at a
 // glance in a live presentation rather than reading a wall of identical
 // grey cards.
-function SectionCard({ icon: Icon, accent, title, footer, children }) {
+function SectionCard({ icon: Icon, accent, title, footer, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden" style={{ borderTop: `3px solid ${accent}` }}>
-      <div className="px-5 py-3 border-b border-border flex items-center gap-2.5">
+    <div className="border border-border rounded-md bg-[hsl(var(--surface-1))] overflow-hidden section-card" style={{ borderTop: `3px solid ${accent}` }}>
+      <button
+        type="button"
+        className="w-full px-5 py-3 border-b border-border flex items-center gap-2.5 text-left"
+        onClick={() => setOpen((o) => !o)}
+      >
         <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accent}22` }}>
           <Icon className="w-4 h-4" style={{ color: accent }} />
         </div>
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-sm font-semibold flex-1">{title}</h3>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform section-chevron ${open ? '' : '-rotate-90'}`} />
+      </button>
+      <div className="section-body" style={{ display: open ? 'block' : 'none' }}>
+        {children}
+        {footer && (
+          <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">{footer}</p>
+        )}
       </div>
-      {children}
-      {footer && (
-        <p className="px-5 py-3 text-[11px] text-muted-foreground border-t border-border">{footer}</p>
-      )}
     </div>
   );
 }
@@ -381,12 +389,13 @@ export default function App() {
     };
     const clusterOf = (country) => {
       if (country === 'UK' || country === 'IE') return 'UKI';
-      if (country === 'DE' || country === 'NL') return 'DE_NL';
+      if (country === 'DE') return 'DE';
+      if (country === 'NL') return 'NL';
       return null;
     };
 
     const blank = () => ({ hwPlacement: 0, impReadiness: 0, contractSigned: 0, implementing: 0, installing: 0 });
-    const counts = { UKI: blank(), DE_NL: blank() };
+    const counts = { UKI: blank(), DE: blank(), NL: blank() };
 
     (signUpItems || []).forEach((item) => {
       const cluster = clusterOf(normalizeCountry(item.country));
@@ -398,7 +407,8 @@ export default function App() {
     const totalOf = (row) => Object.values(row).reduce((sum, n) => sum + n, 0);
     return {
       UKI: { ...counts.UKI, total: totalOf(counts.UKI) },
-      DE_NL: { ...counts.DE_NL, total: totalOf(counts.DE_NL) }
+      DE: { ...counts.DE, total: totalOf(counts.DE) },
+      NL: { ...counts.NL, total: totalOf(counts.NL) }
     };
   }, [signUpItems]);
 
@@ -688,12 +698,16 @@ export default function App() {
                 )}
               </div>
             )}
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={toggleFullscreen} title={isFullscreen ? 'Exit full screen' : 'Full screen'}>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 no-print" onClick={toggleFullscreen} title={isFullscreen ? 'Exit full screen' : 'Full screen'}>
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs w-fit" onClick={refresh} disabled={refetching}>
+            <Button variant="outline" size="sm" className="h-8 text-xs w-fit no-print" onClick={refresh} disabled={refetching}>
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refetching ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs w-fit no-print" onClick={() => window.print()}>
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Download PDF
             </Button>
           </div>
         </div>
@@ -795,9 +809,9 @@ export default function App() {
                 <table className="w-full">
                   <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
                     <tr>
-                      <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Country</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Country</th>
                       {scheduledByMonth.map((m) => (
-                        <th key={m.ym} className="px-5 py-2.5 text-center text-xs font-medium text-muted-foreground border-l border-border">
+                        <th key={m.ym} className="px-5 py-3 text-center text-sm font-medium text-muted-foreground border-l border-border">
                           {m.label}
                         </th>
                       ))}
@@ -806,7 +820,7 @@ export default function App() {
                   <tbody className="divide-y divide-border">
                     {SCHEDULE_TABLE_COUNTRIES.map((c) => (
                       <tr key={c} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                        <td className="px-5 py-3 text-xs font-medium">{FLAGS[c]} {c}</td>
+                        <td className="px-5 py-3 text-sm font-medium">{FLAGS[c]} {c}</td>
                         {scheduledByMonth.map((m) => {
                           const sched = m.byCountry[c] || 0;
                           const actual = m.byCountryActual[c] || 0;
@@ -819,11 +833,11 @@ export default function App() {
                             ? 'hsl(var(--status-scheduled))'
                             : 'hsl(var(--destructive))';
                           return (
-                            <td key={m.ym} className="px-5 py-2.5 text-center border-l border-border">
+                            <td key={m.ym} className="px-5 py-3 text-center border-l border-border">
                               <div className="text-sm font-semibold tabular-nums" style={{ color: pctColor }}>
                                 {pct === null ? '\u2014' : `${pct}%`}
                               </div>
-                              <div className="text-[10px] text-muted-foreground tabular-nums">{actual} / {sched}</div>
+                              <div className="text-xs text-muted-foreground tabular-nums">{actual} / {sched}</div>
                             </td>
                           );
                         })}
@@ -844,43 +858,43 @@ export default function App() {
                 <table className="w-full">
                   <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
                     <tr>
-                      <th className="px-5 py-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Status</th>
                       {FORECAST_COLUMN_ORDER.map((c) => (
-                        <th key={c} className="px-5 py-2.5 text-center text-xs font-medium text-muted-foreground border-l border-border">
+                        <th key={c} className="px-5 py-3 text-center text-sm font-medium text-muted-foreground border-l border-border">
                           {FLAGS[c]} {COUNTRY_DISPLAY_NAME[c]}
                         </th>
                       ))}
-                      <th className="px-5 py-2.5 text-center text-xs font-semibold border-l border-border">Total</th>
+                      <th className="px-5 py-3 text-center text-sm font-semibold border-l border-border">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                      <td className="px-5 py-3 text-xs font-medium">Total Sites Live</td>
+                      <td className="px-5 py-3 text-sm font-medium">Total Sites Live</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
-                        <td key={c} className="px-5 py-3 text-xs text-center tabular-nums border-l border-border">{countryCompletedCounts[c] || 0}</td>
+                        <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{countryCompletedCounts[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-xs text-center font-semibold tabular-nums border-l border-border">{totalSites}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{totalSites}</td>
                     </tr>
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                      <td className="px-5 py-3 text-xs font-medium">Interrupt Kiosks</td>
+                      <td className="px-5 py-3 text-sm font-medium">Interrupt Kiosks</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
-                        <td key={c} className="px-5 py-3 text-xs text-center tabular-nums border-l border-border">{pipelineForecast.interrupt[c] || 0}</td>
+                        <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.interrupt[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-xs text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.interrupt.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.interrupt.Total}</td>
                     </tr>
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                      <td className="px-5 py-3 text-xs font-medium">Disrupt Kiosks</td>
+                      <td className="px-5 py-3 text-sm font-medium">Disrupt Kiosks</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
-                        <td key={c} className="px-5 py-3 text-xs text-center tabular-nums border-l border-border">{pipelineForecast.disrupt[c] || 0}</td>
+                        <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.disrupt[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-xs text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.disrupt.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.disrupt.Total}</td>
                     </tr>
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
-                      <td className="px-5 py-3 text-xs font-medium">Small Format Kiosks</td>
+                      <td className="px-5 py-3 text-sm font-medium">Small Format Kiosks</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
-                        <td key={c} className="px-5 py-3 text-xs text-center tabular-nums border-l border-border">{pipelineForecast.smallFormat[c] || 0}</td>
+                        <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.smallFormat[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-xs text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.smallFormat.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.smallFormat.Total}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -891,12 +905,14 @@ export default function App() {
               icon={Workflow}
               accent="hsl(var(--chart-2))"
               title="Active Pipeline Breakdown"
+              defaultOpen={false}
               footer="Stage counts come from the Sign Up → Ready to Go board's Install Phase field. Finland is excluded, matching how the rest of this dashboard treats it (no further pipeline activity)."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {[
                   { key: 'UKI', label: 'UKI Pipeline' },
-                  { key: 'DE_NL', label: 'DE/NL Pipeline' }
+                  { key: 'DE', label: 'DE Pipeline' },
+                  { key: 'NL', label: 'NL Pipeline' }
                 ].map(({ key, label }) => {
                   const row = activePipelineBreakdown[key];
                   const stageRows = [
@@ -911,19 +927,19 @@ export default function App() {
                       <table className="w-full">
                         <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-semibold" colSpan={2}>{label}</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold" colSpan={2}>{label}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {stageRows.map(([stageLabel, count]) => (
                             <tr key={stageLabel}>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">{stageLabel}</td>
-                              <td className="px-4 py-2.5 text-xs text-right tabular-nums">{count}</td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">{stageLabel}</td>
+                              <td className="px-4 py-3 text-sm text-right tabular-nums">{count}</td>
                             </tr>
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
-                            <td className="px-4 py-2.5 text-xs font-semibold">Total Active Pipeline</td>
-                            <td className="px-4 py-2.5 text-xs text-right font-semibold tabular-nums">{row.total}</td>
+                            <td className="px-4 py-3 text-sm font-semibold">Total Active Pipeline</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold tabular-nums">{row.total}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -937,6 +953,7 @@ export default function App() {
               icon={ClipboardList}
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit, IMACs"
+              defaultOpen={false}
               footer="Remodel/NRO and RetroFit come from the Sign Up board's Project Type field; IMACs from the separate IMAC board. “Misc” has no identified source yet and always shows 0 — let me know what this should track."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
@@ -956,31 +973,31 @@ export default function App() {
                       <table className="w-full">
                         <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-semibold">
+                            <th className="px-4 py-3 text-left text-sm font-semibold">
                               {label} <span className="font-normal text-muted-foreground">({badge})</span>
                             </th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Remodel/NRO</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">RetroFit</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">IMACs</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Misc</th>
+                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Remodel/NRO</th>
+                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">RetroFit</th>
+                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">IMACs</th>
+                            <th className="px-3 py-3 text-center text-sm font-medium text-muted-foreground">Misc</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {clusterRows.map(([clusterKey, rowLabel]) => (
                             <tr key={clusterKey}>
-                              <td className="px-4 py-2.5 text-xs text-muted-foreground">{rowLabel}</td>
-                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].remodelNro}</td>
-                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].retrofit}</td>
-                              <td className="px-3 py-2.5 text-xs text-center tabular-nums">{table[clusterKey].imacs}</td>
-                              <td className="px-3 py-2.5 text-xs text-center tabular-nums text-muted-foreground">{table[clusterKey].misc}</td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">{rowLabel}</td>
+                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].remodelNro}</td>
+                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].retrofit}</td>
+                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].imacs}</td>
+                              <td className="px-3 py-3 text-sm text-center tabular-nums text-muted-foreground">{table[clusterKey].misc}</td>
                             </tr>
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
-                            <td className="px-4 py-2.5 text-xs font-semibold">Total Pipeline</td>
-                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.remodelNro}</td>
-                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.retrofit}</td>
-                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.imacs}</td>
-                            <td className="px-3 py-2.5 text-xs text-center font-semibold tabular-nums">{totals.misc}</td>
+                            <td className="px-4 py-3 text-sm font-semibold">Total Pipeline</td>
+                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.remodelNro}</td>
+                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.retrofit}</td>
+                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.imacs}</td>
+                            <td className="px-3 py-3 text-sm text-center font-semibold tabular-nums">{totals.misc}</td>
                           </tr>
                         </tbody>
                       </table>
