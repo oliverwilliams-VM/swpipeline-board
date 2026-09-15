@@ -391,17 +391,26 @@ export default function App() {
     const liveItemsByNormName = new Map(
       items.filter(isLiveItem).map((i) => [normalizeName(i.name), i])
     );
-    const isSignUpItemLive = (item) =>
-      item.linkedInstallBauNames.some((n) => liveItemsByNormName.has(normalizeName(n)));
-
+    // A given live site can occasionally be reachable via more than one
+    // Sign Up record (we've seen genuine "(copy)" duplicates on that
+    // board) \u2014 tracking counted site IDs per category means a duplicate
+    // record pointing at the same real site is never counted twice.
     const counts = { interrupt: {}, disrupt: {}, smallFormat: {} };
+    const countedSiteIds = { interrupt: new Set(), disrupt: new Set(), smallFormat: new Set() };
     COUNTRIES.forEach((c) => { counts.interrupt[c] = 0; counts.disrupt[c] = 0; counts.smallFormat[c] = 0; });
 
     (signUpItems || []).forEach((item) => {
       const country = normalizeCountry(item.country);
       const category = classifyLayout(item.layoutType);
       if (!country || !category) return;
-      if (!isSignUpItemLive(item)) return;
+
+      const liveSite = item.linkedInstallBauNames
+        .map((n) => liveItemsByNormName.get(normalizeName(n)))
+        .find(Boolean);
+      if (!liveSite) return;
+      if (countedSiteIds[category].has(liveSite.id)) return;
+
+      countedSiteIds[category].add(liveSite.id);
       counts[category][country] += 1;
     });
 
