@@ -54,6 +54,27 @@ function yearMonth(dateText) {
   return dateText.slice(0, 7); // "YYYY-MM"
 }
 
+// "Expect Remodel Month" is a status field with text values like
+// "September 2026" or the abbreviated "Feb 2026" \u2014 not a real date, so
+// it needs its own parser rather than reusing yearMonth(). Non-month
+// values ("CANCELLED", "BAU D2.0", a bare year like "2027") return null
+// and are simply excluded from any month's count.
+const MONTH_NAME_TO_NUM = {
+  jan: '01', january: '01', feb: '02', february: '02', mar: '03', march: '03',
+  apr: '04', april: '04', may: '05', jun: '06', june: '06', jul: '07', july: '07',
+  aug: '08', august: '08', sep: '09', sept: '09', september: '09',
+  oct: '10', october: '10', nov: '11', november: '11', dec: '12', december: '12'
+};
+function parseExpectRemodelMonth(text) {
+  const t = (text || '').trim().toLowerCase();
+  const match = t.match(/^([a-z]+)\s+(\d{4})$/);
+  if (!match) return null;
+  const [, monthPart, year] = match;
+  const num = MONTH_NAME_TO_NUM[monthPart];
+  if (!num) return null;
+  return `${year}-${num}`;
+}
+
 function formatYearMonth(ym) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -518,7 +539,7 @@ export default function App() {
 
   // ---- BAU Forecast tables (This Month "Actual" / Next Month "Forecast"):
   // Remodel/NRO and RetroFit come from the Sign Up board's Store Opening
-  // Type field, bucketed by its H&K Shipping Date. "Re-Location" and
+  // Type field — Remodel/NRO by Expect Remodel Month, RetroFit by its
   // "Kiosk Reposition/Relocation" are excluded entirely, and IMACs was
   // dropped from this table entirely too (was previously sourced from a
   // separate board, no longer tracked here). ----
@@ -559,10 +580,14 @@ export default function App() {
       CLUSTERS.forEach((c) => { table[c] = { remodelNro: 0, retrofit: 0 }; });
 
       (signUpItems || []).forEach((item) => {
-        if (yearMonth(item.hkShippingDate) !== ym) return;
         const cluster = clusterOf(normalizeCountry(item.country));
         const category = classifyStoreOpeningType(item.storeOpeningType);
         if (!cluster || !category) return;
+        // Remodel/NRO is bucketed by Expect Remodel Month; RetroFit uses
+        // the Sign Up board's own (mirrored) Install Date instead \u2014
+        // different fields per category, not one date for the whole table.
+        const itemYm = category === 'retrofit' ? yearMonth(item.installDate) : parseExpectRemodelMonth(item.expectRemodelMonth);
+        if (itemYm !== ym) return;
         table[cluster][category] += 1;
       });
 
@@ -613,8 +638,11 @@ export default function App() {
     };
 
     return (signUpItems || [])
-      .filter((item) => yearMonth(item.hkShippingDate) === monthData.ym)
       .filter((item) => classifyStoreOpeningType(item.storeOpeningType) === category)
+      .filter((item) => {
+        const itemYm = category === 'retrofit' ? yearMonth(item.installDate) : parseExpectRemodelMonth(item.expectRemodelMonth);
+        return itemYm === monthData.ym;
+      })
       .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
       .filter((item) => {
         const itemCluster = clusterOf(item.countryCode);
@@ -630,6 +658,38 @@ export default function App() {
         : { monthKey, cluster, category, label }
     );
   }
+
+  // ---- Diagnostic: sites correctly classified as Remodel/NRO or RetroFit
+  // that never land in any month at all, because their relevant date
+  // field (Expect Remodel Month for Remodel/NRO, Install Date for RetroFit)
+  // is blank on Monday. A low BAU Forecast total is often explained by
+  // this rather than by the classification itself being wrong. ----
+  const bauMissingDateSites = useMemo(() => {
+    const normalizeCountry = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (!t) return null;
+      if (t.includes('united kingdom') || t === 'uk' || t === 'gb') return 'UK';
+      if (t.includes('ireland')) return 'IE';
+      if (t.includes('netherlands') || t === 'nl') return 'NL';
+      if (t.includes('germany') || t === 'de') return 'DE';
+      if (t.includes('finland') || t === 'fi') return 'FI';
+      return null;
+    };
+    const classifyStoreOpeningType = (text) => {
+      const t = (text || '').trim().toLowerCase();
+      if (t.includes('re-model') || t.includes('new restaurant opening')) return 'remodelNro';
+      if (t.includes('retrofit')) return 'retrofit';
+      return null;
+    };
+    return (signUpItems || [])
+      .map((item) => ({ ...item, category: classifyStoreOpeningType(item.storeOpeningType), countryCode: normalizeCountry(item.country) }))
+      .filter((item) => item.category && item.countryCode)
+      .filter((item) => {
+        const itemYm = item.category === 'retrofit' ? yearMonth(item.installDate) : parseExpectRemodelMonth(item.expectRemodelMonth);
+        return itemYm === null;
+      })
+      .sort((a, b) => a.countryCode.localeCompare(b.countryCode) || a.name.localeCompare(b.name));
+  }, [signUpItems]);
 
   // ---- Priority Sites candidates: not a replacement for the manually
   // curated Priority Sites slides (those need a person's judgment and
@@ -1143,7 +1203,7 @@ export default function App() {
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit"
               open={activeTab === 'bau'}
-              footer="Remodel/NRO and RetroFit come from the Sign Up board's Store Opening Type field, bucketed by H&K Shipping Date. “Re-Location” and “Kiosk Reposition/Relocation” are excluded entirely. Click any number to see the sites behind it."
+              footer="Remodel/NRO and RetroFit come from the Sign Up board's Store Opening Type field — Remodel/NRO is bucketed by Expect Remodel Month, RetroFit by the board's own Install Date. “Re-Location” and “Kiosk Reposition/Relocation” are excluded entirely. Click any number to see the sites behind it."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                 {[
@@ -1239,6 +1299,28 @@ export default function App() {
                   );
                 })}
               </div>
+              {bauMissingDateSites.length > 0 && (
+                <div className="border-t border-border px-5 py-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    {bauMissingDateSites.length} site{bauMissingDateSites.length === 1 ? '' : 's'} classified as Remodel/NRO or RetroFit, but missing the date field needed to place them in a month:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {bauMissingDateSites.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
+                        title={s.category === 'retrofit' ? 'Missing Install Date' : 'Missing or unparseable Expect Remodel Month'}
+                      >
+                        <span>{FLAGS[s.countryCode] || '\u{1F310}'}</span>
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground">
+                          {'\u2014'} {s.category === 'retrofit' ? 'RetroFit' : 'Remodel/NRO'}, no {s.category === 'retrofit' ? 'Install Date' : 'Expect Remodel Month'}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard

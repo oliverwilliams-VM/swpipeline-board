@@ -51,7 +51,8 @@ function shapeSignUpItem(rawItem) {
     country: valuesById[SIGNUP_BOARD.columns.country] ?? null,
     layoutType: valuesById[SIGNUP_BOARD.columns.layoutType] ?? null,
     storeOpeningType: valuesById[SIGNUP_BOARD.columns.storeOpeningType] ?? null,
-    hkShippingDate: valuesById[SIGNUP_BOARD.columns.hkShippingDate] ?? null,
+    installDate: valuesById[SIGNUP_BOARD.columns.installDate] ?? null,
+    expectRemodelMonth: valuesById[SIGNUP_BOARD.columns.expectRemodelMonth] ?? null,
     linkedInstallBauNames: parseLinkedNames(rawItem, SIGNUP_BOARD.columns.linkToInstallBau)
   };
 }

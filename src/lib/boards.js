@@ -23,7 +23,8 @@ export const SIGNUP_BOARD = {
     linkToInstallBau: 'connect_boards__1',
     layoutType: 'dup__of_layout_type_bau1__1',
     storeOpeningType: 'dup__of_store_type5__1',
-    hkShippingDate: 'date_mkmkxahk'
+    installDate: 'mirror30__1',
+    expectRemodelMonth: 'color5'
   }
 };
 
