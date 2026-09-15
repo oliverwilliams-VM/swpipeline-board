@@ -485,6 +485,7 @@ export default function App() {
       const t = (text || '').trim().toLowerCase();
       if (t === 'remodel' || t === 'tuscany' || t === 'tuscany ii' || t === 'nro') return 'remodelNro';
       if (t === 'retro - metro' || t === 'retro - fresh forward') return 'retrofit';
+      if (t === 'check required' || t === 'tbd') return 'misc';
       return null;
     };
     const CLUSTERS = ['DE', 'UKI', 'FL', 'NL'];
@@ -976,7 +977,7 @@ export default function App() {
               accent="hsl(var(--chart-5))"
               title="BAU Forecast — Remodel/NRO, RetroFit, IMACs"
               defaultOpen={false}
-              footer="Remodel/NRO and RetroFit come from the Sign Up board's Project Type field; IMACs from the separate IMAC board. “Misc” has no identified source yet and always shows 0 — let me know what this should track."
+              footer="Remodel/NRO, RetroFit and Misc come from the Sign Up board's Project Type field (Misc = “CHECK REQUIRED” / “TBD”); IMACs from the separate IMAC board."
             >
               <div className="p-5 grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                 {[
@@ -1011,7 +1012,7 @@ export default function App() {
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].remodelNro}</td>
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].retrofit}</td>
                               <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].imacs}</td>
-                              <td className="px-3 py-3 text-sm text-center tabular-nums text-muted-foreground">{table[clusterKey].misc}</td>
+                              <td className="px-3 py-3 text-sm text-center tabular-nums">{table[clusterKey].misc}</td>
                             </tr>
                           ))}
                           <tr className="bg-[hsl(var(--surface-2))]">
@@ -1023,6 +1024,12 @@ export default function App() {
                           </tr>
                         </tbody>
                       </table>
+                      <div className="px-4 py-3 border-t border-border text-sm">
+                        <span className="text-muted-foreground">Booked installs (all types, across all 5 boards): </span>
+                        <span className="font-semibold tabular-nums">
+                          {(key === 'thisMonth' ? scheduledByMonth[1]?.total : scheduledByMonth[2]?.total) ?? 0}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
