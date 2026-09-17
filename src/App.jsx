@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle, Camera } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle, Camera, ScanSearch } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
@@ -30,7 +30,8 @@ const SECTION_TABS = [
   { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
   { key: 'active', label: 'Active Pipeline', icon: Workflow, accent: 'hsl(var(--chart-2))' },
   { key: 'bau', label: 'BAU Forecast', icon: ClipboardList, accent: 'hsl(var(--chart-5))' },
-  { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' }
+  { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' },
+  { key: 'reconciliation', label: 'Reconciliation', icon: ScanSearch, accent: 'hsl(var(--primary))' }
 ];
 const COUNTRY_DISPLAY_NAME = { UK: 'UK', IE: 'Ireland', FI: 'Finland', NL: 'Netherlands', DE: 'Germany' };
 
@@ -691,6 +692,46 @@ export default function App() {
       .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
       .sort((a, b) => (a.countryCode || '').localeCompare(b.countryCode || '') || a.name.localeCompare(b.name));
   }, [signUpItems]);
+
+  // ---- Reconciliation: Sign Up board's "Live" items vs the country
+  // boards' own completion status, cross-referenced via the board-relation
+  // link columns in both directions \u2014 the same proven logic used earlier
+  // in this project. ----
+  const reconciliation = useMemo(() => {
+    if (!signUpItems) return null;
+
+    // Match names loosely rather than requiring an exact string match \u2014
+    // small formatting differences between how the two boards display the
+    // same site (extra spaces, punctuation, casing) shouldn't cause a false
+    // "no link found" result.
+    const normalize = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const itemsByNormName = new Map(items.map((i) => [normalize(i.name), i]));
+    const signUpByNormName = new Map(signUpItems.map((i) => [normalize(i.name), i]));
+
+    // Direction A: Sign Up says Live, but the linked country-board item
+    // isn't classified live (or no link exists at all).
+    const signUpLiveNotReflected = signUpItems
+      .filter((s) => (s.installPhase || '').toLowerCase() === 'live')
+      .map((s) => {
+        const linked = s.linkedInstallBauNames.map((n) => itemsByNormName.get(normalize(n))).filter(Boolean);
+        const anyLive = linked.some((li) => isLiveItem(li));
+        return { signUpItem: s, linked, rawNames: s.linkedInstallBauNames, ok: anyLive };
+      })
+      .filter((r) => !r.ok);
+
+    // Direction B: a country-board item is classified live, but its linked
+    // Sign Up item doesn't say Live (or no link exists at all).
+    const countryLiveNotReflected = items
+      .filter(isLiveItem)
+      .map((c) => {
+        const linked = c.linkedSignUpNames.map((n) => signUpByNormName.get(normalize(n))).filter(Boolean);
+        const anyLive = linked.some((li) => (li.installPhase || '').toLowerCase() === 'live');
+        return { countryItem: c, linked, rawNames: c.linkedSignUpNames, ok: anyLive };
+      })
+      .filter((r) => !r.ok);
+
+    return { signUpLiveNotReflected, countryLiveNotReflected };
+  }, [items, signUpItems]);
 
   // ---- Weekly snapshot: saves today's key numbers to a dedicated Monday
   // board, so the dashboard can show "vs last snapshot" deltas rather
@@ -1361,6 +1402,90 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+            </SectionCard>
+
+            <SectionCard
+              icon={ScanSearch}
+              accent="hsl(var(--primary))"
+              title="Reconciliation"
+              open={activeTab === 'reconciliation'}
+              footer="Checks both directions between the Sign Up board's own “Live” status and the 5 country boards' completion status, matched via each board's link column to the other."
+            >
+              {!reconciliation ? (
+                <div className="p-5 text-sm text-muted-foreground">Loading{'\u2026'}</div>
+              ) : (
+                <div className="p-5 space-y-6">
+                  <p className="text-sm text-muted-foreground">
+                    {reconciliation.signUpLiveNotReflected.length + reconciliation.countryLiveNotReflected.length === 0
+                      ? 'Everything reconciles \u2014 no mismatches found between the Sign Up board and the 5 country boards.'
+                      : `Found ${reconciliation.signUpLiveNotReflected.length + reconciliation.countryLiveNotReflected.length} mismatch${reconciliation.signUpLiveNotReflected.length + reconciliation.countryLiveNotReflected.length === 1 ? '' : 'es'} between the Sign Up board's "Live" status and the country boards' completion status.`}
+                  </p>
+
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[hsl(var(--surface-2))] border-b border-border">
+                      <h4 className="text-sm font-semibold">Sign Up says "Live", but Install → BAU doesn't agree ({reconciliation.signUpLiveNotReflected.length})</h4>
+                    </div>
+                    <table className="w-full">
+                      <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Sign Up Item</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Country</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Issue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {reconciliation.signUpLiveNotReflected.length === 0 ? (
+                          <tr><td colSpan={3} className="px-4 py-3 text-xs text-muted-foreground">None found.</td></tr>
+                        ) : reconciliation.signUpLiveNotReflected.map(({ signUpItem, linked, rawNames }) => (
+                          <tr key={signUpItem.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                            <td className="px-4 py-2.5 text-xs font-medium">{signUpItem.name}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{signUpItem.country || '\u2014'}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {rawNames.length === 0
+                                ? 'Link column is empty on this Sign Up item'
+                                : linked.length === 0
+                                ? `Linked name(s) "${rawNames.join(', ')}" not found among country-board items`
+                                : `Linked item(s) not classified live: ${linked.map((l) => `${l.name} (${l.group || l.installPhase || 'unknown'})`).join(', ')}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[hsl(var(--surface-2))] border-b border-border">
+                      <h4 className="text-sm font-semibold">Install → BAU says live, but Sign Up doesn't agree ({reconciliation.countryLiveNotReflected.length})</h4>
+                    </div>
+                    <table className="w-full">
+                      <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Country Board Item</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Country</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Issue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {reconciliation.countryLiveNotReflected.length === 0 ? (
+                          <tr><td colSpan={3} className="px-4 py-3 text-xs text-muted-foreground">None found.</td></tr>
+                        ) : reconciliation.countryLiveNotReflected.map(({ countryItem, linked, rawNames }) => (
+                          <tr key={countryItem.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                            <td className="px-4 py-2.5 text-xs font-medium">{countryItem.name}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{countryItem.country}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {rawNames.length === 0
+                                ? 'Link column is empty on this country-board item'
+                                : linked.length === 0
+                                ? `Linked name(s) "${rawNames.join(', ')}" not found among Sign Up items`
+                                : `Linked Sign Up item(s) not marked Live: ${linked.map((l) => `${l.name} (${l.installPhase || 'unknown'})`).join(', ')}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </SectionCard>
           </div>
         )}
