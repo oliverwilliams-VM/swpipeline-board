@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
-import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle } from 'lucide-react';
+import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle, Camera } from 'lucide-react';
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
 import { useCountUp } from './lib/useCountUp';
 import { fetchCountryItems, fetchSignUpItems } from './lib/mondayClient';
+import { fetchSnapshots, saveSnapshot } from './lib/snapshots';
 import { COUNTRY_BOARDS, isLiveItem } from './lib/boards';
 
 // A punchier, more saturated palette specifically for the market-share pie
@@ -199,6 +200,23 @@ function SectionTabRadio({ name, checked, onChange, icon: Icon, label, accent })
   );
 }
 
+// Shows "+4" / "\u22122" / "\u2014" against the last saved snapshot. Renders
+// nothing at all if there's no snapshot to compare against yet, rather
+// than showing a confusing "+N" with no stated baseline.
+function DeltaBadge({ current, previous }) {
+  if (previous === undefined || previous === null) return null;
+  const diff = current - previous;
+  if (diff === 0) {
+    return <span className="text-xs text-muted-foreground ml-1.5">—</span>;
+  }
+  const color = diff > 0 ? 'hsl(var(--status-complete))' : 'hsl(var(--destructive))';
+  return (
+    <span className="text-xs font-semibold ml-1.5" style={{ color }}>
+      {diff > 0 ? `+${diff}` : diff}
+    </span>
+  );
+}
+
 function GoalCard({ title, current, target, pct, daysRemaining, avgPace, avgPaceLabel, projectedLabel, onTrack, expectedByNow, expectedPct, behindBy, requiredRunRate, monthsLeft }) {
   return (
     <div className="border border-border rounded-md p-5 bg-[hsl(var(--surface-1))]">
@@ -277,6 +295,9 @@ export default function App() {
   const [expandedBauCell, setExpandedBauCell] = useState(null); // { monthKey, cluster, category, label }
   const [activeTab, setActiveTab] = useState('forecast');
   const [signUpItems, setSignUpItems] = useState(null);
+  const [snapshots, setSnapshots] = useState([]);
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
+  const [snapshotMessage, setSnapshotMessage] = useState(null);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
@@ -301,6 +322,12 @@ export default function App() {
     return () => document.removeEventListener('fullscreenchange', handleChange);
   }, []);
 
+  useEffect(() => {
+    if (!snapshotMessage) return;
+    const timeout = setTimeout(() => setSnapshotMessage(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [snapshotMessage]);
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen?.();
@@ -322,6 +349,13 @@ export default function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+    // Snapshots are a secondary feature \u2014 fetched separately so a problem
+    // with that board never blocks the main dashboard from loading.
+    try {
+      setSnapshots(await fetchSnapshots());
+    } catch (err) {
+      console.error('Failed to load snapshots:', err);
     }
   }
 
@@ -657,6 +691,44 @@ export default function App() {
       .map((item) => ({ ...item, countryCode: normalizeCountry(item.country) }))
       .sort((a, b) => (a.countryCode || '').localeCompare(b.countryCode || '') || a.name.localeCompare(b.name));
   }, [signUpItems]);
+
+  // ---- Weekly snapshot: saves today's key numbers to a dedicated Monday
+  // board, so the dashboard can show "vs last snapshot" deltas rather
+  // than only ever showing a live-only view with no memory of change. ----
+  async function handleSaveSnapshot() {
+    setSavingSnapshot(true);
+    setSnapshotMessage(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await saveSnapshot({
+        date: today,
+        estateTotal: pipelineForecast.interrupt.Total + pipelineForecast.disrupt.Total + pipelineForecast.smallFormat.Total,
+        interrupt: pipelineForecast.interrupt.Total,
+        disrupt: pipelineForecast.disrupt.Total,
+        smallFormat: pipelineForecast.smallFormat.Total,
+        retrofitTotal: bauForecastTables.thisMonth.totals.retrofit,
+        remodelNroTotal: bauForecastTables.thisMonth.totals.remodelNro,
+        prioritySites: prioritySiteCandidates.length
+      });
+      setSnapshots(await fetchSnapshots());
+      setSnapshotMessage({ type: 'success', text: 'Snapshot saved.' });
+    } catch (err) {
+      console.error(err);
+      setSnapshotMessage({ type: 'error', text: err.message });
+    } finally {
+      setSavingSnapshot(false);
+    }
+  }
+
+  // The most recent snapshot that ISN'T from today \u2014 comparing against a
+  // snapshot taken earlier today wouldn't tell you anything useful.
+  const previousSnapshot = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return snapshots
+      .filter((s) => s.date && s.date !== today)
+      .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  }, [snapshots]);
+
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -850,6 +922,18 @@ export default function App() {
               <Download className="w-3.5 h-3.5 mr-1.5" />
               Download PDF
             </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs w-fit no-print" onClick={handleSaveSnapshot} disabled={savingSnapshot}>
+              <Camera className={`w-3.5 h-3.5 mr-1.5 ${savingSnapshot ? 'animate-pulse' : ''}`} />
+              {savingSnapshot ? 'Saving\u2026' : 'Save Snapshot'}
+            </Button>
+            {snapshotMessage && (
+              <span
+                className="text-xs no-print"
+                style={{ color: snapshotMessage.type === 'error' ? 'hsl(var(--destructive))' : 'hsl(var(--status-complete))' }}
+              >
+                {snapshotMessage.text}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -1031,6 +1115,10 @@ export default function App() {
                 <span className="text-4xl font-bold tabular-nums">
                   {pipelineForecast.interrupt.Total + pipelineForecast.disrupt.Total + pipelineForecast.smallFormat.Total}
                 </span>
+                <DeltaBadge
+                  current={pipelineForecast.interrupt.Total + pipelineForecast.disrupt.Total + pipelineForecast.smallFormat.Total}
+                  previous={previousSnapshot?.estateTotal}
+                />
                 <span className="text-sm text-muted-foreground">Estate Total (Interrupt + Disrupt + Small Format)</span>
               </div>
               <div className="overflow-x-auto">
@@ -1059,21 +1147,21 @@ export default function App() {
                       {FORECAST_COLUMN_ORDER.map((c) => (
                         <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.interrupt[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.interrupt.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.interrupt.Total}<DeltaBadge current={pipelineForecast.interrupt.Total} previous={previousSnapshot?.interrupt} /></td>
                     </tr>
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
                       <td className="px-5 py-3 text-sm font-medium">Disrupt Kiosks</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
                         <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.disrupt[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.disrupt.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.disrupt.Total}<DeltaBadge current={pipelineForecast.disrupt.Total} previous={previousSnapshot?.disrupt} /></td>
                     </tr>
                     <tr className="hover:bg-[hsl(var(--surface-2))] transition-colors">
                       <td className="px-5 py-3 text-sm font-medium">Small Format Kiosks</td>
                       {FORECAST_COLUMN_ORDER.map((c) => (
                         <td key={c} className="px-5 py-3 text-sm text-center tabular-nums border-l border-border">{pipelineForecast.smallFormat[c] || 0}</td>
                       ))}
-                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.smallFormat.Total}</td>
+                      <td className="px-5 py-3 text-sm text-center font-semibold tabular-nums border-l border-border">{pipelineForecast.smallFormat.Total}<DeltaBadge current={pipelineForecast.smallFormat.Total} previous={previousSnapshot?.smallFormat} /></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1241,7 +1329,7 @@ export default function App() {
             <SectionCard
               icon={AlertTriangle}
               accent="hsl(var(--destructive))"
-              title={`Priority Sites (${prioritySiteCandidates.length})`}
+              title={<>Priority Sites ({prioritySiteCandidates.length})<DeltaBadge current={prioritySiteCandidates.length} previous={previousSnapshot?.prioritySites} /></>}
               open={activeTab === 'priority'}
               footer="Pulled directly from the Sign Up board's own “Priority Sites” field (label = “Priority”), alongside its Priority Pipeline Notes, MFP Owner and H&K Shipping Date."
             >
