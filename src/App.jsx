@@ -1340,18 +1340,20 @@ export default function App() {
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Site</th>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Country</th>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Owner</th>
+                      <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Install Phase</th>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">H&K Shipping Date</th>
                       <th className="px-5 py-3 text-left text-sm font-medium text-muted-foreground">Notes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {prioritySiteCandidates.length === 0 ? (
-                      <tr><td colSpan={5} className="px-5 py-4 text-sm text-muted-foreground">No sites currently flagged as Priority.</td></tr>
+                      <tr><td colSpan={6} className="px-5 py-4 text-sm text-muted-foreground">No sites currently flagged as Priority.</td></tr>
                     ) : prioritySiteCandidates.map((site) => (
                       <tr key={site.id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
                         <td className="px-5 py-3 text-sm font-medium">{site.name}</td>
                         <td className="px-5 py-3 text-sm text-muted-foreground">{FLAGS[site.countryCode] || '\u{1F310}'} {site.countryCode || site.country}</td>
                         <td className="px-5 py-3 text-sm text-muted-foreground">{site.mfpOwner || '\u2014'}</td>
+                        <td className="px-5 py-3 text-sm text-muted-foreground">{site.installPhase || '\u2014'}</td>
                         <td className="px-5 py-3 text-sm text-muted-foreground">{site.hkShippingDate || '\u2014'}</td>
                         <td className="px-5 py-3 text-sm text-muted-foreground">{site.priorityPipelineNotes || '\u2014'}</td>
                       </tr>
