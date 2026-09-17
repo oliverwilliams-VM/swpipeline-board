@@ -494,6 +494,28 @@ export default function App() {
     };
   }, [signUpItems, items]);
 
+  // ---- Diagnostic: every live site that didn't land in Interrupt,
+  // Disrupt or Small Format above \u2014 either because its own Layout Type is
+  // something else entirely (e.g. "Subway Disrupt 2.0"), or because no
+  // linked Sign Up record could be found for it at all. ----
+  const uncategorizedLiveSites = useMemo(() => {
+    const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const signUpByNormName = new Map((signUpItems || []).map((s) => [normalizeName(s.name), s]));
+    return items
+      .filter(isLiveItem)
+      .filter((i) => !pipelineForecast.allCountedSiteIds.has(i.id))
+      .map((i) => {
+        const linkedSignUp = i.linkedSignUpNames.map((n) => signUpByNormName.get(normalizeName(n))).find(Boolean);
+        return {
+          id: i.id,
+          name: i.name,
+          country: i.country,
+          layoutType: linkedSignUp ? (linkedSignUp.layoutType || '(blank)') : null
+        };
+      })
+      .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+  }, [items, signUpItems, pipelineForecast]);
+
   // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
   // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
   // further pipeline activity so it's excluded here, same as the Scheduled
@@ -732,6 +754,26 @@ export default function App() {
 
     return { signUpLiveNotReflected, countryLiveNotReflected };
   }, [items, signUpItems]);
+
+  // ---- Duplicate Sign Up records: two or more Sign Up items sharing the
+  // same site name/number. Each one can individually reconcile fine (both
+  // marked Live, both correctly linked to the same real site), which is
+  // exactly why this doesn't show up as a Reconciliation mismatch \u2014 yet it
+  // still inflates Sign Up's own raw count by one extra per duplicate. ----
+  const duplicateSignUpRecords = useMemo(() => {
+    if (!signUpItems) return [];
+    const normalize = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const groups = new Map();
+    signUpItems.forEach((item) => {
+      const key = normalize(item.name);
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    });
+    return Array.from(groups.values())
+      .filter((group) => group.length > 1)
+      .sort((a, b) => a[0].name.localeCompare(b[0].name));
+  }, [signUpItems]);
 
   // ---- Weekly snapshot: saves today's key numbers to a dedicated Monday
   // board, so the dashboard can show "vs last snapshot" deltas rather
@@ -1207,6 +1249,28 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              {uncategorizedLiveSites.length > 0 && (
+                <div className="border-t border-border px-5 py-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    {uncategorizedLiveSites.length} live site{uncategorizedLiveSites.length === 1 ? '' : 's'} not counted in any category above:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {uncategorizedLiveSites.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--surface-2))] text-xs"
+                        title={s.layoutType === null ? 'No linked Sign Up record found' : `Layout Type: ${s.layoutType}`}
+                      >
+                        <span>{FLAGS[s.country]}</span>
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-muted-foreground">
+                          {s.layoutType === null ? 'no Sign Up link' : s.layoutType}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard
@@ -1478,6 +1542,34 @@ export default function App() {
                                 : linked.length === 0
                                 ? `Linked name(s) "${rawNames.join(', ')}" not found among Sign Up items`
                                 : `Linked Sign Up item(s) not marked Live: ${linked.map((l) => `${l.name} (${l.installPhase || 'unknown'})`).join(', ')}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[hsl(var(--surface-2))] border-b border-border">
+                      <h4 className="text-sm font-semibold">Duplicate Sign Up records ({duplicateSignUpRecords.length})</h4>
+                    </div>
+                    <table className="w-full">
+                      <thead className="bg-[hsl(var(--surface-2))] border-b border-border">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Site</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Country</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Duplicate Records</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {duplicateSignUpRecords.length === 0 ? (
+                          <tr><td colSpan={3} className="px-4 py-3 text-xs text-muted-foreground">None found.</td></tr>
+                        ) : duplicateSignUpRecords.map((group) => (
+                          <tr key={group[0].id} className="hover:bg-[hsl(var(--surface-2))] transition-colors">
+                            <td className="px-4 py-2.5 text-xs font-medium">{group[0].name}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{group[0].country || '\u2014'}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                              {group.map((item) => `${item.name} (${item.installPhase || 'unknown'})`).join(', ')}
                             </td>
                           </tr>
                         ))}
