@@ -7,7 +7,7 @@ const BOARDS = [
   { id: '5757397415', name: 'Install \u2192 BAU', country: 'NL' },
   { id: '5757508504', name: 'Install \u2192 BAU', country: 'DE' },
   { id: '5756651462', name: 'Install \u2192 BAU', country: 'FI' },
-  { id: '9491284603', name: 'IMAC (unverified)', country: 'All' }
+  { id: '18431507120', name: 'PipelineBoard Snapshots (unverified)', country: 'All' }
 ];
 
 export default async function handler(req, res) {
