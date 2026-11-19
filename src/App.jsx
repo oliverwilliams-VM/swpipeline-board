@@ -27,7 +27,7 @@ const FORECAST_COLUMN_ORDER = ['UK', 'IE', 'FI', 'NL', 'DE'];
 // picked via the icon-radio tab bar. Icon/accent match each SectionCard.
 const SECTION_TABS = [
   { key: 'forecast', label: 'Estate Overview', icon: Package, accent: 'hsl(var(--chart-1))' },
-  { key: 'scheduled', label: 'Scheduled vs Actual', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
+  { key: 'scheduled', label: 'Monthly total vs Live', icon: CalendarCheck, accent: 'hsl(var(--chart-4))' },
   { key: 'active', label: 'Active Pipeline', icon: Workflow, accent: 'hsl(var(--chart-2))' },
   { key: 'bau', label: 'BAU Forecast', icon: ClipboardList, accent: 'hsl(var(--chart-5))' },
   { key: 'priority', label: 'Priority Sites', icon: AlertTriangle, accent: 'hsl(var(--destructive))' },
@@ -1053,7 +1053,7 @@ export default function App() {
                 active={expandedCard?.ym === scheduledByMonth[0]?.ym && expandedCard?.type === 'live'}
               />
               <KPICard
-                label={`Scheduled \u2014 ${scheduledByMonth[1]?.label}`}
+                label={`${scheduledByMonth[1]?.label} total — including completed`}
                 value={scheduledByMonth[1]?.total ?? 0}
                 hero
                 type="scheduled"
@@ -1071,7 +1071,7 @@ export default function App() {
               {scheduledByMonth.slice(2).map((m) => (
                 <KPICard
                   key={m.ym}
-                  label={`Scheduled \u2014 ${m.label}`}
+                  label={`${m.label} total — including completed`}
                   value={m.total}
                   hero
                   type="scheduled"
@@ -1085,7 +1085,7 @@ export default function App() {
               <div className="border border-primary rounded-md bg-[hsl(var(--surface-1))]">
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h3 className="text-sm font-semibold">
-                    {expandedCard.type === 'live' ? 'Live' : 'Scheduled'} {'\u2014'} {expandedCard.label} ({expandedSites.length} site{expandedSites.length === 1 ? '' : 's'})
+                    {expandedCard.type === 'live' ? 'Live' : 'Monthly total — including completed'} {'\u2014'} {expandedCard.label} ({expandedSites.length} site{expandedSites.length === 1 ? '' : 's'})
                   </h3>
                   <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setExpandedCard(null)}>
                     Close {'\u2715'}
@@ -1128,9 +1128,9 @@ export default function App() {
             <SectionCard
               icon={CalendarCheck}
               accent="hsl(var(--chart-4))"
-              title="Scheduled vs Actual by Country"
+              title="Monthly total vs Live by Country"
               open={activeTab === 'scheduled'}
-              footer="Each cell shows the hit rate, with the raw counts underneath — ✓ = Live, 📅 = Scheduled."
+              footer="Monthly totals count every country BAU record with an install date in that month, including completed sites. They are not confirmed bookings on Brian. ✓ = Live; 📅 = Monthly total."
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -1173,7 +1173,7 @@ export default function App() {
                                   <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--status-complete))' }} />
                                   {actual}
                                 </span>
-                                <span className="inline-flex items-center gap-1" title="Scheduled">
+                                <span className="inline-flex items-center gap-1" title="Monthly total — including completed">
                                   <CalendarClock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'hsl(var(--status-scheduled))' }} />
                                   {sched}
                                 </span>
