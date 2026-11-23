@@ -8,6 +8,7 @@ import { useCountUp } from './lib/useCountUp';
 import { fetchCountryItems, fetchSignUpItems } from './lib/mondayClient';
 import { fetchSnapshots, saveSnapshot } from './lib/snapshots';
 import { COUNTRY_BOARDS, isLiveItem } from './lib/boards';
+import { BOOKED_OVERRIDE_START, BOOKED_OVERRIDE_END, isBookedOverrideActive, displayedBookedTotal } from './lib/bookedOverride';
 
 // A punchier, more saturated palette specifically for the market-share pie
 // chart, chosen for maximum perceptual distinction between adjacent slices
@@ -300,6 +301,23 @@ export default function App() {
   const [savingSnapshot, setSavingSnapshot] = useState(false);
   const [snapshotMessage, setSnapshotMessage] = useState(null);
   const [, forceTick] = useState(0);
+  const [overrideActive, setOverrideActive] = useState(() => isBookedOverrideActive());
+
+  useEffect(() => {
+    const update = () => setOverrideActive(isBookedOverrideActive());
+    const timers = [BOOKED_OVERRIDE_START, BOOKED_OVERRIDE_END]
+      .filter((boundary) => boundary > Date.now())
+      .map((boundary) => setTimeout(update, boundary - Date.now()));
+    const interval = setInterval(update, 1000);
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(interval);
+      window.removeEventListener('focus', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -820,7 +838,8 @@ export default function App() {
       const label = d.toLocaleDateString('en-US', { month: 'long' });
       const matching = items.filter((i) => yearMonth(i.installDate) === ym);
       const installedActual = matching.filter(isLiveItem).length;
-      const pct = matching.length > 0 ? Math.round((installedActual / matching.length) * 100) : null;
+      const total = displayedBookedTotal(ym, matching.length);
+      const pct = total > 0 ? Math.round((installedActual / total) * 100) : null;
       const byCountry = {};
       const byCountryActual = {};
       const byCountryPct = {};
@@ -832,10 +851,10 @@ export default function App() {
       COUNTRIES.forEach((c) => {
         byCountryPct[c] = byCountry[c] > 0 ? Math.round((byCountryActual[c] / byCountry[c]) * 100) : null;
       });
-      return { ym, label, offset, total: matching.length, installedActual, pct, byCountry, byCountryActual, byCountryPct };
+      return { ym, label, offset, total, installedActual, pct, byCountry, byCountryActual, byCountryPct };
     });
     return months;
-  }, [items]);
+  }, [items, overrideActive]);
 
   // ---- Site list for whichever month/type card is currently expanded ----
   const expandedSites = useMemo(() => {
