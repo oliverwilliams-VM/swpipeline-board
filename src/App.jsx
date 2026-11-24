@@ -5,7 +5,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell }
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from './components/ui/chart';
 import { Sparkline } from './components/ui/sparkline';
 import { useCountUp } from './lib/useCountUp';
-import { fetchCountryItems, fetchSignUpItems } from './lib/mondayClient';
+import { fetchCountryItems, fetchSignUpItems, fetchInstallationReportItems } from './lib/mondayClient';
 import { fetchSnapshots, saveSnapshot } from './lib/snapshots';
 import { COUNTRY_BOARDS, isLiveItem } from './lib/boards';
 import { BOOKED_OVERRIDE_START, BOOKED_OVERRIDE_END, isBookedOverrideActive, displayedBookedTotal } from './lib/bookedOverride';
@@ -297,6 +297,7 @@ export default function App() {
   const [expandedBauCell, setExpandedBauCell] = useState(null); // { monthKey, cluster, category, label }
   const [activeTab, setActiveTab] = useState('forecast');
   const [signUpItems, setSignUpItems] = useState(null);
+  const [installationItems, setInstallationItems] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
   const [snapshotMessage, setSnapshotMessage] = useState(null);
@@ -359,8 +360,9 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
+      const [countryData, signUpData, installationData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchInstallationReportItems()]);
       setItems(countryData);
+      setInstallationItems(installationData);
       setSignUpItems(signUpData);
       setLastUpdated(new Date());
     } catch (err) {
@@ -381,8 +383,9 @@ export default function App() {
   async function refresh() {
     setRefetching(true);
     try {
-      const [countryData, signUpData] = await Promise.all([fetchCountryItems(), fetchSignUpItems()]);
+      const [countryData, signUpData, installationData] = await Promise.all([fetchCountryItems(), fetchSignUpItems(), fetchInstallationReportItems()]);
       setItems(countryData);
+      setInstallationItems(installationData);
       setSignUpItems(signUpData);
       setLastUpdated(new Date());
     } catch (err) {
@@ -836,7 +839,7 @@ export default function App() {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('en-US', { month: 'long' });
-      const matching = items.filter((i) => yearMonth(i.installDate) === ym);
+      const matching = installationItems.filter((i) => yearMonth(i.installDate) === ym);
       const installedActual = matching.filter(isLiveItem).length;
       const total = displayedBookedTotal(ym, matching.length);
       const pct = total > 0 ? Math.round((installedActual / total) * 100) : null;
@@ -854,15 +857,15 @@ export default function App() {
       return { ym, label, offset, total, installedActual, pct, byCountry, byCountryActual, byCountryPct };
     });
     return months;
-  }, [items, overrideActive]);
+  }, [installationItems, overrideActive]);
 
   // ---- Site list for whichever month/type card is currently expanded ----
   const expandedSites = useMemo(() => {
     if (!expandedCard) return [];
-    const matching = items.filter((i) => yearMonth(i.installDate) === expandedCard.ym);
+    const matching = installationItems.filter((i) => yearMonth(i.installDate) === expandedCard.ym);
     const filtered = expandedCard.type === 'live' ? matching.filter(isLiveItem) : matching;
     return filtered.sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-  }, [expandedCard, items]);
+  }, [expandedCard, installationItems]);
 
   function toggleCard(ym, type, label) {
     setExpandedCard((prev) => (prev && prev.ym === ym && prev.type === type ? null : { ym, type, label }));
@@ -1099,6 +1102,8 @@ export default function App() {
                 />
               ))}
             </div>
+
+            <p className="text-xs text-muted-foreground">Monthly totals: current Brian bookings plus original exception bookings and Live Estate. Each store is counted once per market. Live totals come from Live Estate.</p>
 
             {expandedCard && (
               <div className="border border-primary rounded-md bg-[hsl(var(--surface-1))]">

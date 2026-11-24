@@ -1,4 +1,10 @@
 import { COUNTRY_BOARDS, SIGNUP_BOARD } from './boards';
+import { INSTALLATION_BOARDS, reconcileInstallations } from './installationReporting';
+
+export async function fetchInstallationReportItems() {
+  const { results } = await callApi('multiItems', { boards: INSTALLATION_BOARDS });
+  return reconcileInstallations(results);
+}
 
 async function callApi(action, payload = {}) {
   const res = await fetch('/api/monday', {
