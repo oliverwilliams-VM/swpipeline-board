@@ -18,7 +18,7 @@ export function reconcileInstallations(results) {
   function put(item, countryColumn, installDate, source, live = false) {
     const country = MARKETS[value(item, countryColumn)];
     const name = item.name.trim();
-    if (!country || !/^\d+$/.test(name)) return;
+    if (!country || !name) return;
     const key = `${country}:${name}`;
     const prior = sites.get(key);
     // An incident supplies the original booking when no current booking exists.
