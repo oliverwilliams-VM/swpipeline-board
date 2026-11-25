@@ -405,17 +405,19 @@ export default function App() {
     return `${hours} hour${hours === 1 ? '' : 's'} ago`;
   }
 
-  // Top-line counts are completed/live installs only (matching each
-  // board's status or Group as classified by isLiveItem), not every item
-  // in the pipeline regardless of status.
+  // Live Estate is the authoritative completed estate; BAU remains available
+  // only for the legacy reconciliation view.
+  const liveEstateItems = useMemo(
+    () => installationItems.filter((i) => i.source === 'Live Estate')
+      .map((i) => ({ ...i, linkedSignUpNames: [i.name] })),
+    [installationItems]
+  );
   const countryCompletedCounts = useMemo(() => {
     const counts = {};
     COUNTRIES.forEach((c) => { counts[c] = 0; });
-    items
-      .filter(isLiveItem)
-      .forEach((i) => { counts[i.country] = (counts[i.country] || 0) + 1; });
+    liveEstateItems.forEach((i) => { counts[i.country] = (counts[i.country] || 0) + 1; });
     return counts;
-  }, [items]);
+  }, [liveEstateItems]);
 
   const totalSites = useMemo(
     () => Object.values(countryCompletedCounts).reduce((sum, n) => sum + n, 0),
@@ -462,7 +464,7 @@ export default function App() {
     // does it, or the totals wildly overcount vs "Total Sites Live".
     const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const liveItemsByNormName = new Map(
-      items.filter(isLiveItem).map((i) => [normalizeName(i.name), i])
+      liveEstateItems.map((i) => [normalizeName(i.name), i])
     );
     // Reverse lookup: index live country items by whatever Sign Up names
     // THEY link back to. Monday's link columns are sometimes only
@@ -471,7 +473,7 @@ export default function App() {
     // board's own link back to it works fine. Checking both directions
     // catches sites that the forward-only check alone would miss.
     const liveItemByOwnSignUpLinkName = new Map();
-    items.filter(isLiveItem).forEach((i) => {
+    liveEstateItems.forEach((i) => {
       i.linkedSignUpNames.forEach((n) => {
         liveItemByOwnSignUpLinkName.set(normalizeName(n), i);
       });
@@ -493,6 +495,7 @@ export default function App() {
       let liveSite = item.linkedInstallBauNames
         .map((n) => liveItemsByNormName.get(normalizeName(n)))
         .find(Boolean);
+      if (!liveSite) liveSite = liveItemsByNormName.get(normalizeName(item.name));
       if (!liveSite) {
         liveSite = liveItemByOwnSignUpLinkName.get(normalizeName(item.name));
       }
@@ -513,7 +516,7 @@ export default function App() {
       smallFormat: { ...counts.smallFormat, Total: totalOf(counts.smallFormat) },
       allCountedSiteIds
     };
-  }, [signUpItems, items]);
+  }, [signUpItems, liveEstateItems]);
 
   // ---- Diagnostic: every live site that didn't land in Interrupt,
   // Disrupt or Small Format above \u2014 either because its own Layout Type is
@@ -522,8 +525,7 @@ export default function App() {
   const uncategorizedLiveSites = useMemo(() => {
     const normalizeName = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const signUpByNormName = new Map((signUpItems || []).map((s) => [normalizeName(s.name), s]));
-    return items
-      .filter(isLiveItem)
+    return liveEstateItems
       .filter((i) => !pipelineForecast.allCountedSiteIds.has(i.id))
       .map((i) => {
         const linkedSignUp = i.linkedSignUpNames.map((n) => signUpByNormName.get(normalizeName(n))).find(Boolean);
@@ -535,7 +537,7 @@ export default function App() {
         };
       })
       .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-  }, [items, signUpItems, pipelineForecast]);
+  }, [liveEstateItems, signUpItems, pipelineForecast]);
 
   // ---- Active Pipeline Breakdown: Install Phase stage counts, clustered
   // into UKI (UK+Ireland) and DE/NL (Germany+Netherlands) \u2014 Finland has no
@@ -874,7 +876,7 @@ export default function App() {
   // ---- Completed installs by month (trend) ----
   const monthlyCompletedRaw = useMemo(() => {
     const byMonth = {};
-    items
+    liveEstateItems
       .filter((i) => isLiveItem(i) && i.installDate)
       .forEach((i) => {
         const ym = yearMonth(i.installDate);
@@ -883,7 +885,7 @@ export default function App() {
         byMonth[ym].count += 1;
       });
     return Object.values(byMonth).sort((a, b) => a.ym.localeCompare(b.ym));
-  }, [items]);
+  }, [liveEstateItems]);
 
   const monthlyCompletedData = useMemo(
     () => monthlyCompletedRaw.map((d) => ({ label: formatYearMonth(d.ym), count: d.count })),
@@ -894,7 +896,7 @@ export default function App() {
   // stays readable rather than showing every week since the programme began.
   const weeklyCompletedData = useMemo(() => {
     const byWeek = {};
-    items
+    liveEstateItems
       .filter((i) => isLiveItem(i) && i.installDate)
       .forEach((i) => {
         const wk = weekKey(i.installDate);
@@ -906,27 +908,27 @@ export default function App() {
       .sort((a, b) => a.wk.localeCompare(b.wk))
       .slice(-12)
       .map((d) => ({ label: formatWeekLabel(d.wk), count: d.count }));
-  }, [items]);
+  }, [liveEstateItems]);
 
   // Actual total as of 1/3/6/12 months ago \u2014 reconstructed from each
   // site's own Install Date rather than a separate snapshot/history store.
   const historicalTotals = useMemo(() => {
     const now = new Date();
     const cumulativeAsOf = (cutoff) =>
-      items.filter((i) => isLiveItem(i) && i.installDate && new Date(i.installDate) <= cutoff).length;
+      liveEstateItems.filter((i) => isLiveItem(i) && i.installDate && new Date(i.installDate) <= cutoff).length;
 
     return [1, 3, 6, 12].map((months) => {
       const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
       return { label: `${months} mo ago`, total: cumulativeAsOf(cutoff) };
     });
-  }, [items]);
+  }, [liveEstateItems]);
 
   // ---- Per-country cumulative growth, last 6 data points \u2014 powers the
   // sparkline on each country card ----
   const countryTrends = useMemo(() => {
     const byCountry = {};
     COUNTRIES.forEach((c) => { byCountry[c] = {}; });
-    items
+    liveEstateItems
       .filter((i) => isLiveItem(i) && i.installDate)
       .forEach((i) => {
         const ym = yearMonth(i.installDate);
@@ -944,7 +946,7 @@ export default function App() {
       result[c] = cumulative.slice(-6);
     });
     return result;
-  }, [items]);
+  }, [liveEstateItems]);
 
   // ---- Scheduled by month, stacked by country \u2014 covers both history and
   // the near-term future, using every item's Install Date regardless of
