@@ -1,7 +1,6 @@
 // Monthly installation reporting must survive retirement of the BAU boards.
 export const INSTALLATION_BOARDS = [
-  { id: '18432365825', columnIds: ['date_mm7f8hw6', 'country_mm7fphac'] },
-  { id: '18436052644', columnIds: ['date_mm89cbr7', 'country_mm891mag'] },
+  { id: '18432365825', columnIds: ['date_mm7f8hw6', 'country_mm7fphac', 'boolean_mm9f7mr4', 'date_mm9fw92r', 'color_mm7fz1an'] },
   { id: '18436233865', columnIds: ['date_mm8ajafx', 'country_mm8a9c0z', 'color_mm8as0pv'] }
 ];
 
@@ -28,11 +27,18 @@ export function reconcileInstallations(results) {
     sites.set(key, { id: item.id, name, country, installDate, source,
       installPhase: live ? 'Live' : 'Imp Readiness', group: item.group?.title || '' });
   }
-  boards.get('18432365825').forEach((i) => put(i, 'country_mm7fphac', dateValue(i, 'date_mm7f8hw6'), 'Brian'));
+  const brian = boards.get('18432365825');
+  brian.filter((i) => value(i, 'color_mm7fz1an') !== 'Installed before Brain')
+    .forEach((i) => put(i, 'country_mm7fphac', dateValue(i, 'date_mm7f8hw6'), 'Brian'));
   [...boards.get('18436233865')]
     .sort((a, b) => (dateValue(b, 'date_mm8ajafx') || '').localeCompare(dateValue(a, 'date_mm8ajafx') || ''))
     .filter((i) => value(i, 'color_mm8as0pv') !== 'Not an incident')
     .forEach((i) => put(i, 'country_mm8a9c0z', dateValue(i, 'date_mm8ajafx'), 'Exception'));
-  boards.get('18436052644').forEach((i) => put(i, 'country_mm891mag', dateValue(i, 'date_mm89cbr7'), 'Live Estate', true));
+  // Brian's estate tick is authoritative, including live stores with an open revisit.
+  brian.filter((i) => {
+    const cv = i.column_values.find((c) => c.id === 'boolean_mm9f7mr4');
+    if (cv?.text === 'v') return true;
+    try { return [true, 'true'].includes(JSON.parse(cv?.value || '{}').checked); } catch { return false; }
+  }).forEach((i) => put(i, 'country_mm7fphac', dateValue(i, 'date_mm9fw92r'), 'Live Estate', true));
   return [...sites.values()];
 }
