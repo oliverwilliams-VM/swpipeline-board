@@ -42,3 +42,21 @@ export function reconcileInstallations(results) {
   }).forEach((i) => put(i, 'country_mm7fphac', dateValue(i, 'date_mm9fw92r'), 'Live Estate', true));
   return [...sites.values()];
 }
+
+// November reporting allocation authorised 27 Nov 2026. Operational dates and
+// live status are never changed; this view has no write or email side effects.
+export function novemberReporting(items, isLive) {
+  const cohort = new Map([
+    ['13473467333', '50998'], ['13473460666', '72835'],
+    ['13246185799', '58302'], ['13246160813', '50030'], ['13246164778', '72837']
+  ]);
+  const actual = new Map();
+  const early = new Map();
+  for (const item of items) {
+    const key = `${item.country}:${item.name}`;
+    if (isLive(item) && item.installDate?.startsWith('2026-11')) actual.set(key, item);
+    if (item.country === 'UK' && cohort.get(String(item.id)) === item.name) early.set(key, item);
+  }
+  for (const key of actual.keys()) early.delete(key);
+  return { actual: actual.size, early: [...early.values()], total: actual.size + early.size };
+}
