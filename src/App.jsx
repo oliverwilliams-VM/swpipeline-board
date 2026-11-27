@@ -1,4 +1,3 @@
-import { novemberReporting } from './lib/installationReporting';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './components/ui/button';
 import { AlertCircle, RefreshCw, Maximize2, Minimize2, Package, Workflow, CalendarCheck, ClipboardList, Download, CheckCircle2, CalendarClock, AlertTriangle, Camera, ScanSearch } from 'lucide-react';
@@ -836,8 +835,6 @@ export default function App() {
       .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
   }, [snapshots]);
 
-  const novemberReport = useMemo(() => novemberReporting(installationItems, isLiveItem), [installationItems]);
-
   const scheduledByMonth = useMemo(() => {
     const now = new Date();
     const months = [-1, 0, 1, 2].map((offset) => {
@@ -867,15 +864,10 @@ export default function App() {
   // ---- Site list for whichever month/type card is currently expanded ----
   const expandedSites = useMemo(() => {
     if (!expandedCard) return [];
-    if (expandedCard.type === 'reported') {
-      const actual = installationItems.filter((i) => yearMonth(i.installDate) === '2026-11' && isLiveItem(i));
-      return [...actual, ...novemberReport.early.map((i) => ({ ...i, earlyReported: true }))]
-        .sort((a, b) => Number(Boolean(b.earlyReported)) - Number(Boolean(a.earlyReported)) || a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-    }
     const matching = installationItems.filter((i) => yearMonth(i.installDate) === expandedCard.ym);
     const filtered = expandedCard.type === 'live' ? matching.filter(isLiveItem) : matching;
     return filtered.sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
-  }, [expandedCard, installationItems, novemberReport]);
+  }, [expandedCard, installationItems]);
 
   function toggleCard(ym, type, label) {
     setExpandedCard((prev) => (prev && prev.ym === ym && prev.type === type ? null : { ym, type, label }));
@@ -1100,13 +1092,6 @@ export default function App() {
                 onClick={() => toggleCard(scheduledByMonth[1]?.ym, 'live', scheduledByMonth[1]?.label)}
                 active={expandedCard?.ym === scheduledByMonth[1]?.ym && expandedCard?.type === 'live'}
               />
-              <KPICard
-                label="November reported — live + early reported"
-                value={novemberReport.total}
-                hero
-                onClick={() => toggleCard('2026-11', 'reported', 'November 2026')}
-                active={expandedCard?.ym === '2026-11' && expandedCard?.type === 'reported'}
-              />
               {scheduledByMonth.slice(2).map((m) => (
                 <KPICard
                   key={m.ym}
@@ -1122,16 +1107,11 @@ export default function App() {
 
             <p className="text-xs text-muted-foreground">Monthly totals: current Brian bookings plus original exception bookings and Live Estate. Each store is counted once per market. Live totals come from Live Estate.</p>
 
-            <p className="text-sm text-muted-foreground">
-              November reported: <strong>{novemberReport.total}</strong> = {novemberReport.actual} operationally live in November + {novemberReport.early.length} EG early reported.
-              {' '}Early reporting does not mean installed or trading. Booked schedules retain actual installation dates.
-            </p>
-
             {expandedCard && (
               <div className="border border-primary rounded-md bg-[hsl(var(--surface-1))]">
                 <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                   <h3 className="text-sm font-semibold">
-                    {expandedCard.type === 'reported' ? 'Reported — live + early reported' : expandedCard.type === 'live' ? 'Live' : 'Monthly total — including completed'} {'\u2014'} {expandedCard.label} ({expandedSites.length} site{expandedSites.length === 1 ? '' : 's'})
+                    {expandedCard.type === 'live' ? 'Live' : 'Monthly total — including completed'} {'\u2014'} {expandedCard.label} ({expandedSites.length} site{expandedSites.length === 1 ? '' : 's'})
                   </h3>
                   <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setExpandedCard(null)}>
                     Close {'\u2715'}
@@ -1149,7 +1129,6 @@ export default function App() {
                         >
                           <span>{FLAGS[s.country]}</span>
                           <span className="font-medium">{s.name}</span>
-                          {s.earlyReported && <span>— Early reported; actual install {s.installDate || 'date unconfirmed'}</span>}
                         </span>
                       ))}
                     </div>
