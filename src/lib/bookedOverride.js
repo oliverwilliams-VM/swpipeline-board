@@ -7,5 +7,7 @@ export function isBookedOverrideActive(now = Date.now()) {
 }
 
 export function displayedBookedTotal(ym, liveTotal, now = Date.now()) {
+  // Oliver-approved December reporting adjustment; source records stay intact.
+  if (ym === '2026-12') return Math.max(0, liveTotal - 11);
   return ym === '2026-11' && isBookedOverrideActive(now) ? 101 : liveTotal;
 }
